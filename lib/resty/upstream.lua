@@ -1,9 +1,6 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
-require "resty.upstream.math"
 
 local lrucache = require "resty.upstream.lrucache"
--- see https://github.com/hamishforbes/lua-resty-iputils.git
-local iputils = require "resty.iputils"
 
 local LOGGER = ngx.log
 local ERROR = ngx.ERR
@@ -21,7 +18,6 @@ local error = error
 local pcall = pcall
 local math_max = math.max
 local math_gcd = math.gcd
-local math_abs = math.abs
 
 local _M = {
     _VERSION = '0.01'
@@ -80,15 +76,15 @@ local function create_index(hosts)
     return index
 end
 
-local function change_event(ctx, data, err)
+local function change_event(u, data, err)
     if not data then
-        LOGGER(NOTICE, "app:", ctx.app, ", ups:", ctx.ups, ", err:", err)
+        LOGGER(NOTICE, "ups:", u, ", err:", err)
         return
     end
     local version = tonumber(data.version)
     local hosts = data.hosts
     if not hosts then
-        LOGGER(NOTICE, "no hosts data: ", ctx.app, ",", ctx.ups)
+        LOGGER(NOTICE, "no hosts data: ", u)
         return
     end
 
@@ -111,7 +107,7 @@ local function change_event(ctx, data, err)
         end
     end
 
-    local old = upcache:get(ctx.ups)
+    local old = upcache:get(u)
     if old then
         -- 存在节点，合并健康检查状态和权值
         for _, peer in ipairs(old.peers) do
@@ -136,21 +132,9 @@ local function change_event(ctx, data, err)
         max = max, -- 最大权值
         cw = max, -- 当前权值
         peers = ups, -- 节点
+        backup_peers = {}, -- 备用节点
         index = create_index(ups) -- 节点索引
     })
-end
-
-local function getups(u)
-    if not u then
-        return nil, "invalid upstream"
-    end
-
-    local ups = upcache:get(u)
-    if not ups then
-        return nil, "no resolver defined: " .. tostring(u)
-    end
-
-    return ups
 end
 
 function _M.init(config)
@@ -198,7 +182,27 @@ function _M.get_primary_peers(u)
 end
 
 function _M.get_backup_peers(u)
-    return {}
+    if not u then
+        return nil, "invalid resolver"
+    end
+    local upstream = upcache:get(u)
+    if not upstream then
+        return nil, "no resolver defined: " .. tostring(u)
+    end
+    return upstream.backup_peers
+end
+
+function _M.get_upstream(u)
+    if not u then
+        return nil, "invalid upstream"
+    end
+
+    local ups = upcache:get(u)
+    if not ups then
+        return nil, "no resolver defined: " .. tostring(u)
+    end
+
+    return ups
 end
 
 function _M.get_version(u)
@@ -210,92 +214,6 @@ function _M.get_version(u)
         return nil, "no resolver defined: " .. tostring(u)
     end
     return upstream.version
-end
-
-function _M.get_source_ip_hash_peer(u)
-    local ups, err = upcache(u)
-    if not ups then
-        return nil, err
-    end
-
-    local src, err = math_abs(iputils.ip2bin(ngx.var.remote_addr))
-    if not src then
-        return nil, err
-    end
-    local current = (src % ups.size) + 1
-    local peer = ups.peers[current]
-
-    if not peer then
-        return nil, "no peer found"
-    end
-
-    if peer.down then
-        return _M.get_round_robin_peer(u)
-    end
-
-    return peer
-end
-
-function _M.get_round_robin_peer(u)
-    local ups, err = upcache(u)
-    if not ups then
-        return nil, err
-    end
-
-    local current = ups.current
-
-    local peer
-    repeat
-        ups.current = (ups.current % ups.size) + 1
-        peer = ups.peers[ups.current]
-
-        if not peer then
-            return nil, "no peer found"
-        end
-
-        if current == ups.current and peer.down then
-            return nil, "no avaliable peer"
-        end
-
-    until not peer.down
-
-    return peer
-end
-
-function _M.get_weighted_round_robin_peer(u)
-    local ups, err = getups(u)
-    if not ups then
-        return nil, err
-    end
-
-    local current = ups.current
-    local cw = ups.cw
-
-    while true do
-        ups.current = (ups.current % ups.size) + 1
-        if ups.current == 1 then
-            ups.cw = ups.cw - ups.gcd
-            if ups.cw <= 0 then
-                ups.cw = ups.max
-            end
-        end
-
-        local peer = ups.peers[ups.current]
-
-        if not peer then
-            return nil, "no peer found: " .. tostring(u)
-        end
-
-        if peer.weight >= ups.cw then
-            if not peer.down then
-                return peer
-            end
-            -- 一个轮回，却没有找到一个有用的节点，赶紧退出。
-            if ups.cw == cw and ups.current == current then
-                return nil, "no avaliable peer: " .. tostring(u)
-            end
-        end
-    end
 end
 
 return _M
