@@ -1,6 +1,6 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
 
-local lrucache = require "resty.upstream.lrucache"
+local lrucache = require "ngx.upstream.lrucache"
 
 local LOGGER = ngx.log
 local ERROR = ngx.ERR

@@ -1,17 +1,14 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
 
-require "resty.upstream.math"
+require "resty.balancer.math"
 -- see https://github.com/hamishforbes/lua-resty-iputils.git
 local iputils = require "resty.iputils"
 
-local upstream = require "resty.upstream"
+local balancer = require "ngx.balancer"
+local upstream = require "ngx.upstream"
 
 local tostring = tostring
 local math_abs = math.abs
-
-local _M = {
-    _VERSION = '0.01'
-}
 
 local function get_round_robin_peer(u)
     local ups, err = upstream.get_upstream(u)
@@ -38,7 +35,6 @@ local function get_round_robin_peer(u)
 
     return peer
 end
-_M.get_round_robin_peer = get_round_robin_peer
 
 local function get_source_ip_hash_peer(u)
     local ups, err = upstream.get_upstream(u)
@@ -63,7 +59,6 @@ local function get_source_ip_hash_peer(u)
 
     return peer
 end
-_M.get_source_ip_hash_peer = get_source_ip_hash_peer
 
 local function get_weighted_round_robin_peer(u)
     local ups, err = upstream.get_upstream(u)
@@ -100,6 +95,8 @@ local function get_weighted_round_robin_peer(u)
         end
     end
 end
-_M.get_weighted_round_robin_peer = get_weighted_round_robin_peer
 
-return _M
+balancer.get_round_robin_peer = get_round_robin_peer
+balancer.get_source_ip_hash_peer = get_source_ip_hash_peer
+balancer.get_weighted_round_robin_peer = get_weighted_round_robin_peer
+return balancer
