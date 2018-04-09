@@ -1,6 +1,7 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
 
 local cjson = require "cjson.safe"
+--see https://github.com/openresty/lua-resty-lrucache
 local lrucache = require "resty.lrucache"
 
 local _M = {
