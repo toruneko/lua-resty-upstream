@@ -146,12 +146,15 @@ function _M.init(config)
 end
 
 function _M.watcher(ups)
+    -- @todo 根据ups从服务发现中读取节点列表，并通过change_event方法写入upcache
 end
 
 function _M:unwatcher(ups)
+    -- @todo 移除由watcher开启的服务发现监听
 end
 
 function _M.get_upstreams()
+    -- @todo 读取所有开启了watcher的监听
     return {}
 end
 
