@@ -148,14 +148,20 @@ function _M.init(config)
 end
 
 function _M.update_upstream(u, data)
-    if update_upstream(u, data) then
+    local ok = update_upstream(u, data)
+    if ok then
         upstream[u] = true
     end
+    return ok
 end
 
 function _M.delete_upstream(u)
     upcache:delete(u)
     upstream[u] = nil
+end
+
+function _M:get_upstream(u)
+    return getups(u)
 end
 
 function _M.get_upstreams()
