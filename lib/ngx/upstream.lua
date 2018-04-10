@@ -1,5 +1,5 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
-require "resty.balancer.math"
+require "ngx.upstream.math"
 local lrucache = require "ngx.upstream.lrucache"
 
 local LOGGER = ngx.log
