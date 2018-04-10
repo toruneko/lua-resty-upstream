@@ -23,12 +23,13 @@ local _M = {
     _VERSION = '0.01'
 }
 
-local upcache
-
 local ok, new_tab = pcall(require, "table.new")
 if not ok then
     new_tab = function(narr, nrec) return {} end
 end
+
+local upcache
+local upstream
 
 local function table_size(tab)
     local size = 0
@@ -80,7 +81,7 @@ local function update_upstream(u, data)
     local hosts = data.hosts
     if not hosts then
         LOGGER(NOTICE, "no hosts data: ", u)
-        return
+        return false
     end
 
     local ups = new_tab(0, #hosts)
@@ -110,7 +111,7 @@ local function update_upstream(u, data)
     ups = table_values(ups, #hosts)
     local max = getmax(ups)
     local gcd = getgcd(ups)
-    upcache:set(u, {
+    return upcache:set(u, {
         version = version,
         current = 1, -- current peer index
         size = #ups, -- peers count size
@@ -142,15 +143,27 @@ function _M.init(config)
     if not shared then
         error("no shared cache")
     end
-    upcache = lrucache(shdict, config.cache_size or 10000)
+    upcache = lrucache(shdict, config.cache_size or 1000)
+    upstream = new_tab(0, config.cache_size or 1000)
 end
 
 function _M.update_upstream(u, data)
-    update_upstream(u, data)
+    if update_upstream(u, data) then
+        upstream[u] = true
+    end
 end
 
 function _M.delete_upstream(u)
     upcache:delete(u)
+    upstream[u] = nil
+end
+
+function _M.get_upstreams()
+    local ups = {}
+    for key, _ in pairs(upstream) do
+        ups[#ups + 1] = key
+    end
+    return ups
 end
 
 function _M.set_peer_down(u, is_backup, host, value)
