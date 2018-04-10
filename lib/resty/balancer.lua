@@ -1,6 +1,5 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
 
-require "resty.balancer.math"
 -- see https://github.com/hamishforbes/lua-resty-iputils.git
 local iputils = require "resty.iputils"
 
@@ -28,6 +27,7 @@ local function get_round_robin_peer(u)
             return nil, "no peer found"
         end
 
+        -- visit all peers, but no one avaliable, exit.
         if current == ups.current and peer.down then
             return nil, "no avaliable peer"
         end
@@ -89,7 +89,7 @@ local function get_weighted_round_robin_peer(u)
             if not peer.down then
                 return peer
             end
-            -- 一个轮回，却没有找到一个有用的节点，赶紧退出。
+            -- visit all peers, but no one avaliable, exit.
             if ups.cw == cw and ups.current == current then
                 return nil, "no avaliable peer: " .. tostring(u)
             end

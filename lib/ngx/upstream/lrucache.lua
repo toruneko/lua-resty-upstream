@@ -1,8 +1,12 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
 
 local cjson = require "cjson.safe"
---see https://github.com/openresty/lua-resty-lrucache
-local lrucache = require "resty.lrucache"
+
+-- @see https://github.com/openresty/lua-resty-lrucache
+local ok, lrucache = pcall(require, "resty.lrucache")
+if not ok then
+    error("lua-resty-lrucache module required")
+end
 
 local _M = {
     _VERSION = '0.01'
@@ -24,9 +28,9 @@ function _M:get(key)
     local vkey = "v:" .. key
 
     local c = cache:get(key)
-    -- 本地cache中没有缓存
+    -- missing in local cache.
     if not c then
-        -- 从shared中读取，写回本地缓存
+        -- get from shared cache, write to local cache.
         local data = shdict:get(key)
         if not data then
             return nil, "no data"
@@ -50,16 +54,17 @@ function _M:get(key)
     end
 
     local ver = shdict:get(vkey)
-    -- shdict中没有版本数据，可能已经被删除（或者被淘汰）
+    -- version data missing in shared cache, maybe deleted
     if not ver then
         return nil, "no version"
     end
-    -- 判断cache与shdict中的数据版本是否一致
+
+    -- judge the local cache version and shared cache version.
     if ver == c.ver then
         return c.data, c.ver
     end
 
-    -- 数据已被某个worker更新了，需要重新写入本地缓存
+    -- data has been updated, should be write to local cache.
     local data = shdict:get(key)
     if not data then
         return nil, "no data"
@@ -79,7 +84,7 @@ function _M:set(key, value, ttl)
     local shdict = self.shdict
     local vkey = "v:" .. key
 
-    -- 只需更新shdict，本地缓存在get时会更新
+    -- update shared cache only, local cache will be update when invoke get method.
     local succ, err = shdict:set(key, cjson.encode({ val = value, ttl = ttl }), ttl or 0)
     if not succ then
         return false, err

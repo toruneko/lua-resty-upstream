@@ -1,5 +1,5 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
-
+require "resty.balancer.math"
 local lrucache = require "ngx.upstream.lrucache"
 
 local LOGGER = ngx.log
@@ -90,7 +90,7 @@ local function update_upstream(u, data)
         peer.max_fails = tonumber(peer.max_fails) or 3
         peer.fail_timeout = tonumber(peer.fail_timeout) or 10
         peer.down = peer.default_down and true or false
-        -- 必须要有host
+        -- host must not be nil
         if peer.host then
             ups[peer.host .. peer.port] = peer
         end
@@ -98,7 +98,7 @@ local function update_upstream(u, data)
 
     local old = upcache:get(u)
     if old then
-        -- 存在节点，合并健康检查状态和权值
+        -- exists already, merge healthcehck status
         for _, peer in ipairs(old.peers) do
             local p = ups[peer.host .. peer.port]
             if p then
@@ -112,15 +112,15 @@ local function update_upstream(u, data)
     local gcd = getgcd(ups)
     upcache:set(u, {
         version = version,
-        current = 1, -- 当前节点
-        size = #ups, -- 节点数量
-        gcd = gcd, -- 最大公约数
-        max = max, -- 最大权值
-        cw = max, -- 当前权值
-        peers = ups, -- 节点
-        index = create_index(ups), -- 节点索引
-        backup_peers = {}, -- 备用节点
-        backup_index = create_index({}) -- 备用节点索引
+        current = 1, -- current peer index
+        size = #ups, -- peers count size
+        gcd = gcd, -- GCD
+        max = max, -- max weight
+        cw = max, -- current weight
+        peers = ups, -- peers
+        index = create_index(ups), -- peers index
+        backup_peers = {}, -- backup peers, not implement
+        backup_index = create_index({}) -- backup peers index, not implement
     })
 end
 
@@ -166,7 +166,7 @@ function _M.set_peer_down(u, is_backup, host, value)
         local idx = ups.index[host]
         ups.peers[idx].down = value
     end
-    -- set回去，以便更新ups让其他worker发现
+    -- update cache, make other worker process to read
     return upcache:set(u, ups)
 end
 
