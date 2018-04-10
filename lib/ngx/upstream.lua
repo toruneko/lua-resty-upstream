@@ -23,7 +23,6 @@ local _M = {
     _VERSION = '0.01'
 }
 
-local etcd
 local upcache
 
 local ok, new_tab = pcall(require, "table.new")
@@ -55,7 +54,7 @@ end
 local function getgcd(hosts)
     local gcd = 0
     for _, peer in ipairs(hosts) do
-        gcd = math_gcd(peer.weight or 100, gcd)
+        gcd = math_gcd(peer.weight, gcd)
     end
     return gcd
 end
@@ -63,7 +62,7 @@ end
 local function getmax(hosts)
     local max = 0
     for _, peer in ipairs(hosts) do
-        max = math_max(max, peer.weight or 100)
+        max = math_max(max, peer.weight)
     end
     return max
 end
@@ -76,11 +75,7 @@ local function create_index(hosts)
     return index
 end
 
-local function change_event(u, data, err)
-    if not data then
-        LOGGER(NOTICE, "ups:", u, ", err:", err)
-        return
-    end
+local function update_upstream(u, data)
     local version = tonumber(data.version)
     local hosts = data.hosts
     if not hosts then
@@ -88,22 +83,16 @@ local function change_event(u, data, err)
         return
     end
 
-    local ups = {}
+    local ups = new_tab(0, #hosts)
     for _, peer in ipairs(hosts) do
-        if peer.port then
-            peer.port = tonumber(peer.port)
-        else
-            peer.port = 8088 -- 没有port，默认为8088
-        end
-        if peer.weight then
-            peer.weight = tonumber(peer.weight)
-        else
-            peer.weight = 100 -- 没有权值，默认为100
-        end
-        peer.down = false -- default down false
+        peer.port = tonumber(peer.port) or 8080
+        peer.weight = tonumber(peer.weight) or 100
+        peer.max_fails = tonumber(peer.max_fails) or 3
+        peer.fail_timeout = tonumber(peer.fail_timeout) or 10
+        peer.down = peer.default_down and true or false
         -- 必须要有host
         if peer.host then
-            ups[peer.host] = peer
+            ups[peer.host .. peer.port] = peer
         end
     end
 
@@ -111,20 +100,17 @@ local function change_event(u, data, err)
     if old then
         -- 存在节点，合并健康检查状态和权值
         for _, peer in ipairs(old.peers) do
-            local p = ups[peer.host]
+            local p = ups[peer.host .. peer.port]
             if p then
                 p.down = peer.down
-                if peer.weight then
-                    p.weight = peer.weight
-                end
             end
         end
     end
 
-    ups = table_values(ups)
+    ups = table_values(ups, #hosts)
     local max = getmax(ups)
     local gcd = getgcd(ups)
-    upcache:set(ctx.ups, {
+    upcache:set(u, {
         version = version,
         current = 1, -- 当前节点
         size = #ups, -- 节点数量
@@ -132,72 +118,15 @@ local function change_event(u, data, err)
         max = max, -- 最大权值
         cw = max, -- 当前权值
         peers = ups, -- 节点
+        index = create_index(ups), -- 节点索引
         backup_peers = {}, -- 备用节点
-        index = create_index(ups) -- 节点索引
+        backup_index = create_index({}) -- 备用节点索引
     })
 end
 
-function _M.init(config)
-    local shdict = shared[config.cache]
-    if not shared then
-        error("no shared cache")
-    end
-    upcache = lrucache(shdict, config.cache_size or 10000)
-end
-
-function _M.watcher(ups)
-    -- @todo 根据ups从服务发现中读取节点列表，并通过change_event方法写入upcache
-end
-
-function _M:unwatcher(ups)
-    -- @todo 移除由watcher开启的服务发现监听
-end
-
-function _M.get_upstreams()
-    -- @todo 读取所有开启了watcher的监听
-    return {}
-end
-
-function _M.set_peer_down(u, is_backup, host, value)
-    if not u then
-        return nil, "invalid upstream"
-    end
-    local upstream = upcache:get(u)
-    if not upstream then
-        return nil, "no resolver defined: " .. tostring(u)
-    end
-
-    local idx = upstream.index[host]
-    upstream.peers[idx].down = value
-    -- set回去，以便更新ups让其他worker发现
-    return upcache:set(u, upstream)
-end
-
-function _M.get_primary_peers(u)
+local function getups(u)
     if not u then
         return nil, "invalid resolver"
-    end
-    local upstream = upcache:get(u)
-    if not upstream then
-        return nil, "no resolver defined: " .. tostring(u)
-    end
-    return upstream.peers
-end
-
-function _M.get_backup_peers(u)
-    if not u then
-        return nil, "invalid resolver"
-    end
-    local upstream = upcache:get(u)
-    if not upstream then
-        return nil, "no resolver defined: " .. tostring(u)
-    end
-    return upstream.backup_peers
-end
-
-function _M.get_upstream(u)
-    if not u then
-        return nil, "invalid upstream"
     end
 
     local ups = upcache:get(u)
@@ -208,15 +137,64 @@ function _M.get_upstream(u)
     return ups
 end
 
+function _M.init(config)
+    local shdict = shared[config.cache]
+    if not shared then
+        error("no shared cache")
+    end
+    upcache = lrucache(shdict, config.cache_size or 10000)
+end
+
+function _M.update_upstream(u, data)
+    update_upstream(u, data)
+end
+
+function _M.delete_upstream(u)
+    upcache:delete(u)
+end
+
+function _M.set_peer_down(u, is_backup, host, value)
+    local ups, err = getups(u)
+    if not ups then
+        return nil, err
+    end
+
+    if is_backup then
+        local idx = ups.backup_index[host]
+        ups.backup_peers[idx].down = value
+    else
+        local idx = ups.index[host]
+        ups.peers[idx].down = value
+    end
+    -- set回去，以便更新ups让其他worker发现
+    return upcache:set(u, ups)
+end
+
+function _M.get_primary_peers(u)
+    local ups, err = getups(u)
+    if not ups then
+        return nil, err
+    end
+
+    return ups.peers
+end
+
+function _M.get_backup_peers(u)
+    local ups, err = getups(u)
+    if not ups then
+        return nil, err
+    end
+
+    return ups.backup_peers
+end
+
 function _M.get_version(u)
-    if not u then
-        return nil, "invalid upstream"
+    local ups, err = getups(u)
+    if not ups then
+        return nil, err
     end
-    local upstream = upcache:get(u)
-    if not upstream then
-        return nil, "no resolver defined: " .. tostring(u)
-    end
-    return upstream.version
+
+    return ups.version
 end
 
 return _M

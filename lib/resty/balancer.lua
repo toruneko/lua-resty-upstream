@@ -9,9 +9,10 @@ local upstream = require "ngx.upstream"
 
 local tostring = tostring
 local math_abs = math.abs
+local getups = upstream.get_upstream
 
 local function get_round_robin_peer(u)
-    local ups, err = upstream.get_upstream(u)
+    local ups, err = getups(u)
     if not ups then
         return nil, err
     end
@@ -37,7 +38,7 @@ local function get_round_robin_peer(u)
 end
 
 local function get_source_ip_hash_peer(u)
-    local ups, err = upstream.get_upstream(u)
+    local ups, err = getups(u)
     if not ups then
         return nil, err
     end
@@ -61,7 +62,7 @@ local function get_source_ip_hash_peer(u)
 end
 
 local function get_weighted_round_robin_peer(u)
-    local ups, err = upstream.get_upstream(u)
+    local ups, err = getups(u)
     if not ups then
         return nil, err
     end
@@ -99,4 +100,5 @@ end
 balancer.get_round_robin_peer = get_round_robin_peer
 balancer.get_source_ip_hash_peer = get_source_ip_hash_peer
 balancer.get_weighted_round_robin_peer = get_weighted_round_robin_peer
+
 return balancer
