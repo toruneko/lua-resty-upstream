@@ -17,19 +17,19 @@ local function get_round_robin_peer(u)
         return nil, err
     end
 
-    local current = (ups.current % ups.size) + 1
+    local cp = ups.cp
 
     local peer
     repeat
-        ups.current = (ups.current % ups.size) + 1
-        peer = ups.peers[ups.current]
+        ups.cp = (ups.cp % ups.size) + 1
+        peer = ups.peers[ups.cp]
 
         if not peer then
             return nil, "no peer found"
         end
 
         -- visit all peers, but no one avaliable, exit.
-        if current == ups.current and peer.down then
+        if cp == ups.cp and peer.down then
             return nil, "no available peer"
         end
 
@@ -68,19 +68,19 @@ local function get_weighted_round_robin_peer(u)
         return nil, err
     end
 
-    local current = (ups.current % ups.size) + 1
+    local cp = ups.cp
     local cw = ups.cw
 
     while true do
-        ups.current = (ups.current % ups.size) + 1
-        if ups.current == 1 then
+        ups.cp = (ups.cp % ups.size) + 1
+        if ups.cp == 1 then
             ups.cw = ups.cw - ups.gcd
             if ups.cw <= 0 then
                 ups.cw = ups.max
             end
         end
 
-        local peer = ups.peers[ups.current]
+        local peer = ups.peers[ups.cp]
 
         if not peer then
             return nil, "no peer found: " .. tostring(u)
@@ -90,10 +90,10 @@ local function get_weighted_round_robin_peer(u)
             if not peer.down then
                 return peer
             end
-            -- visit all peers, but no one avaliable, exit.
-            if ups.cw == cw and ups.current == current then
-                return nil, "no available peer: " .. tostring(u)
-            end
+        end
+        -- visit all peers, but no one avaliable, exit.
+        if ups.cw == cw and ups.cp == cp then
+            return nil, "no available peer: " .. tostring(u)
         end
     end
 end

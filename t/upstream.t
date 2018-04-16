@@ -73,6 +73,7 @@ true
                 }
             })
             local ups = upstream.get_upstreams()
+            table.sort(ups)
             for _, up in ipairs(ups) do
                 ngx.say(up)
             end
@@ -147,6 +148,7 @@ bar.com
                 }
             })
             local ups = upstream.get_upstreams()
+            table.sort(ups)
             for _, up in ipairs(ups) do
                 local u, err = upstream.get_upstream(up)
                 if not u then

@@ -114,7 +114,7 @@ local function update_upstream(u, data)
     local gcd = getgcd(ups)
     return upcache:set(u, {
         version = version,
-        current = 1, -- current peer index
+        cp = 1, -- current peer index
         size = #ups, -- peers count size
         gcd = gcd, -- GCD
         max = max, -- max weight
