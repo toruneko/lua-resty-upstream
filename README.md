@@ -15,6 +15,19 @@ Description
 
 This library requires an nginx build with [ngx_lua module](https://github.com/openresty/lua-nginx-module), and [LuaJIT 2.0](http://luajit.org/luajit.html).
 
+Specially, you can not install nginx with module [lua-upstream-nginx-module](https://github.com/openresty/lua-upstream-nginx-module)
+
+for example:
+```text
+    tar -xzvf openresty-VERSION.tar.gz
+    cd openresty-VERSION
+    ./configure --without-http_lua_upstream_module
+    make
+    make install
+```
+
+because of lua-resty-upstream has been already instead of lua-upstream-nginx-module
+
 Synopsis
 ========
 
@@ -88,8 +101,7 @@ upstream Methods
 To load this library,
 
 1. you need to specify this library's path in ngx_lua's [lua_package_path](https://github.com/openresty/lua-nginx-module#lua_package_path) directive. For example, `lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";`.
-2. you must be add `--without-http_lua_upstream_module` option when install openresty software.
-3. you use `require` to load the library into a local Lua variable:
+2. you use `require` to load the library into a local Lua variable:
 
 ```lua
     local upstream = require "ngx.upstream"
