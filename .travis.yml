@@ -32,6 +32,6 @@ install:
   - sudo make install
 script:
   - export PATH=$PATH:/usr/local/openresty/nginx/sbin
-  - openresty -V
+  - /usr/local/openresty/nginx/sbin/nginx -V
   - prove -r t
   - bash test_with_valgrind.sh
