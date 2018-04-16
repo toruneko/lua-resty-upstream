@@ -26,10 +26,9 @@ install:
   - sudo apt-get -y install libpcre3-dev libssl-dev perl make build-essential curl
   - sudo wget https://openresty.org/download/openresty-1.13.6.1.tar.gz
   - sudo tar -xzvf openresty-1.13.6.1.tar.gz 1>/dev/null
-  - cd openresty-1.13.6.1/
-  - sudo ./configure --without-http_lua_upstream_module
-  - sudo make
-  - sudo make install
+  - sudo ./openresty-1.13.6.1/configure --without-http_lua_upstream_module
+  - sudo make -C ./openresty-1.13.6.1
+  - sudo make -C ./openresty-1.13.6.1 install
 script:
   - export PATH=$PATH:/usr/local/openresty/nginx/sbin
   - /usr/local/openresty/nginx/sbin/nginx -V
