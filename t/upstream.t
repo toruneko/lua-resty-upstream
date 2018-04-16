@@ -154,19 +154,20 @@ bar.com
                 if not u then
                     ngx.log(ngx.ERR, err)
                 end
+                local p = {}
                 for _, peer in ipairs(u.peers) do
-                    ngx.say(peer.host)
+                    p[#p + 1] = peer.host
                 end
+                table.sort(p)
+                ngx.say(table.concat(p, ","))
             end
         }
     }
 --- request
 GET /t
 --- response_body
-a1.bar.com
-a2.bar.com
-a1.foo.com
-a2.foo.com
+a1.bar.com,a2.bar.com
+a1.foo.com,a2.foo.com
 --- error_code: 200
 --- no_error_log
 [error]

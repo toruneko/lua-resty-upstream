@@ -86,10 +86,8 @@ local function get_weighted_round_robin_peer(u)
             return nil, "no peer found: " .. tostring(u)
         end
 
-        if peer.weight >= ups.cw then
-            if not peer.down then
-                return peer
-            end
+        if peer.weight >= ups.cw and not peer.down then
+            return peer
         end
         -- visit all peers, but no one avaliable, exit.
         if ups.cw == cw and ups.cp == cp then
