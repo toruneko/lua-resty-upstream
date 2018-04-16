@@ -71,7 +71,7 @@ end
 local function create_index(hosts)
     local index = new_tab(0, table_size(hosts))
     for idx, peer in pairs(hosts) do
-        index[peer.host] = idx
+        index[peer.name] = idx
     end
     return index
 end
@@ -91,9 +91,10 @@ local function update_upstream(u, data)
         peer.max_fails = tonumber(peer.max_fails) or 3
         peer.fail_timeout = tonumber(peer.fail_timeout) or 10
         peer.down = peer.default_down and true or false
-        -- host must not be nil
-        if peer.host then
-            ups[peer.host .. peer.port] = peer
+        peer.default_down = nil -- remove default_down field
+        -- name and host must not be nil
+        if peer.name and peer.host then
+            ups[peer.name] = peer
         end
     end
 
@@ -101,7 +102,7 @@ local function update_upstream(u, data)
     if old then
         -- exists already, merge healthcehck status
         for _, peer in ipairs(old.peers) do
-            local p = ups[peer.host .. peer.port]
+            local p = ups[peer.name]
             if p then
                 p.down = peer.down
             end
@@ -143,7 +144,7 @@ function _M.init(config)
     if not shared then
         error("no shared cache")
     end
-    upcache = lrucache(shdict, config.cache_size or 1000)
+    upcache = lrucache.new(shdict, config.cache_size or 1000)
     upstream = new_tab(0, config.cache_size or 1000)
 end
 
@@ -160,7 +161,7 @@ function _M.delete_upstream(u)
     upstream[u] = nil
 end
 
-function _M:get_upstream(u)
+function _M.get_upstream(u)
     return getups(u)
 end
 
@@ -172,17 +173,17 @@ function _M.get_upstreams()
     return ups
 end
 
-function _M.set_peer_down(u, is_backup, host, value)
+function _M.set_peer_down(u, is_backup, name, value)
     local ups, err = getups(u)
     if not ups then
         return nil, err
     end
 
     if is_backup then
-        local idx = ups.backup_index[host]
+        local idx = ups.backup_index[name]
         ups.backup_peers[idx].down = value
     else
-        local idx = ups.index[host]
+        local idx = ups.index[name]
         ups.peers[idx].down = value
     end
     -- update cache, make other worker process to read

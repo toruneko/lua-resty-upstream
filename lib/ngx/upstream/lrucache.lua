@@ -2,6 +2,8 @@
 
 local cjson = require "cjson.safe"
 
+local setmetatable = setmetatable
+
 -- @see https://github.com/openresty/lua-resty-lrucache
 local ok, lrucache = pcall(require, "resty.lrucache")
 if not ok then
@@ -11,18 +13,22 @@ end
 local _M = {
     _VERSION = '0.01'
 }
+local mt = { __index = _M }
 
 -- init_by_lua
-function _M:new(shdict, size)
+function _M.new(shdict, size)
     if not size then
         size = 1000
     end
 
-    self.cache = lrucache.new(size)
-    self.shdict = shdict
+    local self = {
+        cache = lrucache.new(size),
+        shdict = shdict
+    }
+    return setmetatable(self, mt)
 end
 
-function _M:get(key)
+function _M.get(self, key)
     local cache = self.cache
     local shdict = self.shdict
     local vkey = "v:" .. key
@@ -80,7 +86,7 @@ function _M:get(key)
     return data.val, ver
 end
 
-function _M:set(key, value, ttl)
+function _M.set(self, key, value, ttl)
     local shdict = self.shdict
     local vkey = "v:" .. key
 
@@ -99,7 +105,7 @@ function _M:set(key, value, ttl)
     return true
 end
 
-function _M:delete(key)
+function _M.delete(self, key)
     local shdict = self.shdict
     local vkey = "v:" .. key
 

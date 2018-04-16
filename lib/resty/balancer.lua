@@ -2,6 +2,7 @@
 
 -- see https://github.com/hamishforbes/lua-resty-iputils.git
 local iputils = require "resty.iputils"
+iputils.enable_lrucache()
 
 local balancer = require "ngx.balancer"
 local upstream = require "ngx.upstream"
@@ -29,7 +30,7 @@ local function get_round_robin_peer(u)
 
         -- visit all peers, but no one avaliable, exit.
         if current == ups.current and peer.down then
-            return nil, "no avaliable peer"
+            return nil, "no available peer"
         end
 
     until not peer.down
@@ -91,7 +92,7 @@ local function get_weighted_round_robin_peer(u)
             end
             -- visit all peers, but no one avaliable, exit.
             if ups.cw == cw and ups.current == current then
-                return nil, "no avaliable peer: " .. tostring(u)
+                return nil, "no available peer: " .. tostring(u)
             end
         end
     end

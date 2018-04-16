@@ -8,6 +8,8 @@ Status
 
 This library is considered production ready.
 
+Build status: [![Travis](https://travis-ci.org/toruneko/lua-resty-upstream.svg?branch=master)](https://travis-ci.org/toruneko/lua-resty-upstream)
+
 Description
 ===========
 
@@ -20,7 +22,7 @@ Synopsis
     # nginx.conf:
 
     lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";
-    lua_shared_dict upstream  10m;
+    lua_shared_dict upstream    5m;
     lua_shared_dict healthcheck 1m;
     
     server {
@@ -35,7 +37,7 @@ Synopsis
                 local ok = upstream.update_upstream("foo.com", {
                     version = 1,
                     hosts = {
-                        {host = "127.0.0.1", port = 8080, weiht = 100, max_fails = 3, fail_timeout = 10, default_down = false}
+                        {name = "127.0.0.1:8080", host = "127.0.0.1", port = 8080, weiht = 100, max_fails = 3, fail_timeout = 10, default_down = false}
                     }
                 })
                 if not ok then
@@ -121,7 +123,7 @@ update upstream or create new upstream from data. return true on success.
 local ok = upstream.update_upstream("foo.com", {
     version = 1,
     hosts = {
-        {host = "127.0.0.1", port = 8080, weiht = 100, max_fails = 3, fail_timeout = 10, default_down = false}
+        {name = "127.0.0.1:8080", host = "127.0.0.1", port = 8080, weiht = 100, max_fails = 3, fail_timeout = 10, default_down = false}
     }
 })
 if not ok then
