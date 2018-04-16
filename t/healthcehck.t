@@ -19,9 +19,10 @@ our $HttpConfig = <<_EOC_;
     lua_shared_dict upstream  5m;
     init_by_lua_block {
         local upstream = require "ngx.upstream"
-        upstream.init{
-            cache = "upstream"
-        }
+        upstream.init({
+            cache = "upstream",
+            cache_size = 1000
+        })
     }
 _EOC_
 
