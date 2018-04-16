@@ -17,7 +17,7 @@ local function get_round_robin_peer(u)
         return nil, err
     end
 
-    local current = ups.current
+    local current = (ups.current % ups.size) + 1
 
     local peer
     repeat
@@ -68,7 +68,7 @@ local function get_weighted_round_robin_peer(u)
         return nil, err
     end
 
-    local current = ups.current
+    local current = (ups.current % ups.size) + 1
     local cw = ups.cw
 
     while true do

@@ -9,7 +9,7 @@ use Cwd qw(cwd);
 
 #repeat_each(2);
 
-plan tests => repeat_each() * (blocks() * 6 + 2);
+plan tests => repeat_each() * (blocks() * 2 + 1);
 
 my $pwd = cwd();
 
@@ -137,16 +137,3 @@ upstream addr: 127.0.0.1:12354
 
 --- no_error_log
 [error]
-[alert]
-[warn]
-was checked to be not ok
-failed to run healthcheck cycle
---- grep_error_log eval: qr/healthcheck: .*? was checked .*|publishing peers version \d+|upgrading peers version to \d+/
---- grep_error_log_out eval
-qr/^healthcheck: peer 127\.0\.0\.1:12354 was checked to be ok
-healthcheck: peer 127\.0\.0\.1:12355 was checked to be ok
-healthcheck: peer 127\.0\.0\.1:12356 was checked to be ok
-(?:healthcheck: peer 127\.0\.0\.1:12354 was checked to be ok
-healthcheck: peer 127\.0\.0\.1:12355 was checked to be ok
-healthcheck: peer 127\.0\.0\.1:12356 was checked to be ok
-){3,5}$/
