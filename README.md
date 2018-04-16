@@ -15,7 +15,7 @@ Description
 
 This library requires an nginx build with [ngx_lua module](https://github.com/openresty/lua-nginx-module), and [LuaJIT 2.0](http://luajit.org/luajit.html).
 
-Specially, you can not install nginx with module [lua-upstream-nginx-module](https://github.com/openresty/lua-upstream-nginx-module)
+Specially, you can not install nginx with module [lua-upstream-module](https://github.com/openresty/lua-upstream-nginx-module).
 
 for example:
 ```text
@@ -26,7 +26,7 @@ for example:
     make install
 ```
 
-because of lua-resty-upstream has been already instead of lua-upstream-nginx-module
+Because of lua-resty-module implements the interface of lua-upstream-module, you can use [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) to check upstream peer status.
 
 Synopsis
 ========
