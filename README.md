@@ -1,7 +1,7 @@
 Name
 =============
 
-lua-resty-upstream - pure lua nginx upstream management
+lua-resty-upstream - pure lua dynamic nginx upstream module
 
 Status
 ======
