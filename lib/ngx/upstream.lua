@@ -157,7 +157,6 @@ function _M.init(config)
         error("no shared cache")
     end
     upcache = lrucache.new(shdict, config.cache_size or 1000)
-    upstream = new_tab(0, config.cache_size or 1000)
 
     upcache:delete("lua.resty.upstream")
 end
