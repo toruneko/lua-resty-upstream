@@ -29,7 +29,6 @@ if not ok then
 end
 
 local upcache
-local upstream
 
 local function table_size(tab)
     local size = 0
@@ -139,6 +138,19 @@ local function getups(u)
     return ups
 end
 
+local function saveups(u, delete)
+    local data = upcache:get("lua.resty.upstream")
+    if not data then
+        data = {}
+    end
+    if delete then
+        data[u] = nil
+    else
+        data[u] = true
+    end
+    upcache:set("lua.resty.upstream", data)
+end
+
 function _M.init(config)
     local shdict = shared[config.cache]
     if not shared then
@@ -146,19 +158,21 @@ function _M.init(config)
     end
     upcache = lrucache.new(shdict, config.cache_size or 1000)
     upstream = new_tab(0, config.cache_size or 1000)
+
+    upcache:delete("lua.resty.upstream")
 end
 
 function _M.update_upstream(u, data)
     local ok = update_upstream(u, data)
     if ok then
-        upstream[u] = true
+        saveups(u)
     end
     return ok
 end
 
 function _M.delete_upstream(u)
     upcache:delete(u)
-    upstream[u] = nil
+    saveups(u, true)
 end
 
 function _M.get_upstream(u)
@@ -166,8 +180,13 @@ function _M.get_upstream(u)
 end
 
 function _M.get_upstreams()
+    local data = upcache:get("lua.resty.upstream")
+    if not data then
+        return {}
+    end
+
     local ups = {}
-    for key, _ in pairs(upstream) do
+    for key, _ in pairs(data) do
         ups[#ups + 1] = key
     end
     return ups
