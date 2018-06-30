@@ -26,7 +26,7 @@ for example:
     make install
 ```
 
-Because of lua-resty-module implements the interface of lua-upstream-module, you can use [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) to check upstream peer status.
+Because of lua-resty-module implements the interface of lua-upstream-module, and you can use [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) to check upstream peer status.
 
 Synopsis
 ========
@@ -79,23 +79,12 @@ Synopsis
                 
                
             }
-            
-            balancer_by_lua_block {
-                -- resty.balancer extend ngx.balancer
-                -- use resty.balancer instead of ngx.balanacer 
-                local balancer = require "resty.balancer"
-                local peer, err = balancer.get_weighted_round_robin_peer("foo.com")
-                if not peer then
-                    ngx.log(ngx.ERR, err)
-                end
-                balancer.set_current_peer(peer.host, peer.port)
-            }
         }
     }
     
 ```
 
-upstream Methods
+Methods
 =======
 
 To load this library,
@@ -151,60 +140,6 @@ delete_upstream
 `syntax: upstream:delete_upstream(u)`
 
 delete upstream 
-
-balancer Methods
-=======
-
-To load this library,
-
-1. you need to specify this library's path in ngx_lua's [lua_package_path](https://github.com/openresty/lua-nginx-module#lua_package_path) directive. For example, `lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";`.
-2. you use `require` to load the library into a local Lua variable:
-
-```lua
-    local balancer = require "resty.balancer"
-```
-
-get_round_robin_peer
----
-`syntax: peer, err = balancer.get_round_robin_peer(u)`
-
-`phase: rewrite_by_lua, access_by_lua, balancer_by_lua`
-
-```lua
-local peer, err = balancer.get_round_robin_peer(u)
-if not peer then 
-    ngx.log(ngx.ERR, err)
-end
-balancer.set_current_peer(peer.host, peer.port)
-```
-
-get_source_ip_hash_peer
-----
-`syntax: peer, err = balancer.get_source_ip_hash_peer(u)`
-
-`phase: rewrite_by_lua, access_by_lua, balancer_by_lua`
-
-```lua
-local peer, err = balancer.get_source_ip_hash_peer(u)
-if not peer then 
-    ngx.log(ngx.ERR, err)
-end
-balancer.set_current_peer(peer.host, peer.port)
-```
-
-get_weighted_round_robin_peer
-------
-`syntax: peer, err = balancer.get_weighted_round_robin_peer(u)`
-
-`phase: rewrite_by_lua, access_by_lua, balancer_by_lua`
-
-```lua
-local peer, err = balancer.get_weighted_round_robin_peer(u)
-if not peer then 
-    ngx.log(ngx.ERR, err)
-end
-balancer.set_current_peer(peer.host, peer.port)
-```
 
 Author
 ======
