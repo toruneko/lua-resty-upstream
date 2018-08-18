@@ -5,6 +5,7 @@ local lrucache = require "ngx.upstream.lrucache"
 local LOGGER = ngx.log
 local NOTICE = ngx.NOTICE
 
+local ngx_lua_version = ngx.config.ngx_lua_version
 local tostring = tostring
 local tonumber = tonumber
 local shared = ngx.shared
@@ -176,7 +177,18 @@ end
 
 function _M.incr_peer_fails(u, is_backup, name, timeout)
     local key = gen_peer_key("f:", u, is_backup, name)
-    return peercache:incr(key, 1, 0, timeout)
+    if ngx_lua_version >= 10011 then
+        return peercache:incr(key, 1, 0, timeout)
+    end
+    local next, err = peercache:incr(key, 1)
+    if not next then
+        if err == "not found" or err == "not a number" then
+            return peercache:set(key, 1, timeout) and 1 or 0
+        end
+        return 0
+    end
+
+    return next
 end
 
 function _M.set_peer_temporarily_down(u, is_backup, name, timeout)

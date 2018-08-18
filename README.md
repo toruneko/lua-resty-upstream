@@ -31,7 +31,7 @@ Because of lua-resty-module implements the interface of lua-upstream-module. And
 Dependencies
 ==========
 
-- [lua-resty-healthcheck](https://github.com/openresty/lua-resty-lrucache)
+- [lua-resty-lrucache](https://github.com/openresty/lua-resty-lrucache)
 - [lua-resty-iputils](https://github.com/hamishforbes/lua-resty-iputils.git)
 - [ngx.balancer](https://github.com/openresty/lua-resty-core/blob/master/lib/ngx/balancer.md)
 

@@ -165,11 +165,13 @@ enter backend
                         host = "127.0.0.1",
                         port = $TEST_NGINX_SERVER_PORT,
                         weight = 100,
+                        fail_timeout = 1,
                         default_down = false
                     }
                 }
             })
             ngx.ctx.tries = 4
+            ngx.sleep(1.1)
         }
 
         proxy_pass http://dyups_server/backend;

@@ -152,7 +152,7 @@ local function proxy_pass(peer_factory, u, tries, include)
         local last_peer = ctx.balancer_last_peer
         if last_peer and last_peer.max_fails > 0 then
             local fails = incr_peer_fails(u, false, last_peer.name, last_peer.fail_timeout)
-            if fails >= last_peer.max_fails then
+            if fails and fails >= last_peer.max_fails then
                 set_peer_temporarily_down(u, false, last_peer.name, last_peer.fail_timeout)
                 LOGGER(WARN, last_peer.name, " temporarily unavailable.")
             end
