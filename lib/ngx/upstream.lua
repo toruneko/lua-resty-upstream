@@ -68,7 +68,6 @@ local function update_upstream(u, data)
 
     local ups = new_tab(0, #hosts)
     for _, peer in ipairs(hosts) do
-        peer.upstream = u
         peer.port = tonumber(peer.port) or 8080
         peer.weight = tonumber(peer.weight) or 100
         peer.max_fails = tonumber(peer.max_fails) or 3

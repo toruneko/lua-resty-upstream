@@ -37,7 +37,9 @@ our $HttpConfig = <<'_EOC_';
         server 0.0.0.0:80;
         balancer_by_lua_block {
             local balancer = require "resty.balancer"
-            local ok, err = balancer.proxy_pass(ngx.ctx.balancer, ngx.ctx.tries)
+            local ok, err = balancer.proxy_pass(function(u)
+                return balancer.get_round_robin_peer(u)
+            end, "foo.com", ngx.ctx.tries)
             if not ok then
                 ngx.log(ngx.ERR, err)
             end
@@ -54,10 +56,6 @@ __DATA__
 --- config
     location = /t {
         access_by_lua_block {
-            local balancer = require "resty.balancer"
-            ngx.ctx.balancer = function()
-                return balancer.get_round_robin_peer("foo.com")
-            end
             ngx.ctx.tries = 0
         }
 
@@ -81,10 +79,6 @@ GET /t
 --- config
     location = /t {
         access_by_lua_block {
-            local balancer = require "resty.balancer"
-            ngx.ctx.balancer = function()
-                return balancer.get_round_robin_peer("foo.com")
-            end
             ngx.ctx.tries = 3
         }
 
@@ -131,11 +125,6 @@ enter backend
                     },
                 }
             })
-
-            local balancer = require "resty.balancer"
-            ngx.ctx.balancer = function()
-                return balancer.get_round_robin_peer("foo.com")
-            end
             ngx.ctx.tries = 3
         }
 
@@ -171,14 +160,15 @@ enter backend
             upstream.update_upstream("foo.com", {
                 version = 2,
                 hosts = {
-                    {name = "a1.foo.com:8080", host = "127.0.0.1", port = $TEST_NGINX_SERVER_PORT, weight = 100, default_down = false},
+                    {
+                        name = "a1.foo.com:8080",
+                        host = "127.0.0.1",
+                        port = $TEST_NGINX_SERVER_PORT,
+                        weight = 100,
+                        default_down = false
+                    }
                 }
             })
-
-            local balancer = require "resty.balancer"
-            ngx.ctx.balancer = function()
-                return balancer.get_round_robin_peer("foo.com")
-            end
             ngx.ctx.tries = 4
         }
 
@@ -225,11 +215,6 @@ a1.foo.com:8080 temporarily unavailable
                     },
                 }
             })
-
-            local balancer = require "resty.balancer"
-            ngx.ctx.balancer = function()
-                return balancer.get_round_robin_peer("foo.com")
-            end
             ngx.ctx.tries = 3
         }
 
@@ -284,10 +269,6 @@ no available peer: foo.com
                 ngx.sleep(2)
             end
 
-            local balancer = require "resty.balancer"
-            ngx.ctx.balancer = function()
-                return balancer.get_round_robin_peer("foo.com")
-            end
             ngx.ctx.tries = 1
         }
 

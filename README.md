@@ -26,7 +26,14 @@ for example:
     make install
 ```
 
-Because of lua-resty-module implements the interface of lua-upstream-module, and you can use [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) to check upstream peer status.
+Because of lua-resty-module implements the interface of lua-upstream-module. And you can use [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) module to check upstream peer status all the same.
+
+Dependencies
+==========
+
+- [lua-resty-healthcheck](https://github.com/openresty/lua-resty-lrucache)
+- [lua-resty-iputils](https://github.com/hamishforbes/lua-resty-iputils.git)
+- [ngx.balancer](https://github.com/openresty/lua-resty-core/blob/master/lib/ngx/balancer.md)
 
 Synopsis
 ========
@@ -35,7 +42,7 @@ Synopsis
     # nginx.conf:
 
     lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";
-    lua_shared_dict upstream    5m;
+    lua_shared_dict upstream    1m;
     lua_shared_dict healthcheck 1m;
     
     server {
@@ -44,13 +51,21 @@ Synopsis
                 local upstream = require "ngx.upstream"
                 upstream.init({
                     cache = "upstream",
-                    cache_size = 1000
+                    cache_size = 100
                 })
                 -- update foo.com upstream
                 local ok = upstream.update_upstream("foo.com", {
                     version = 1,
                     hosts = {
-                        {name = "127.0.0.1:8080", host = "127.0.0.1", port = 8080, weiht = 100, max_fails = 3, fail_timeout = 10, default_down = false}
+                        {
+                            name = "127.0.0.1:8080", 
+                            host = "127.0.0.1", 
+                            port = 8080, 
+                            weight = 100, 
+                            max_fails = 3, 
+                            fail_timeout = 10, 
+                            default_down = false
+                        }
                     }
                 })
                 if not ok then
@@ -76,8 +91,6 @@ Synopsis
                     ngx.log(ngx.ERR, "failed to spawn health checker: ", err)
                     return
                 end
-                
-               
             }
         }
     }
@@ -105,7 +118,7 @@ init
 initialize upstream management with configuration:
 
 ```nginx
-lua_shared_dict upstream  10m;
+lua_shared_dict upstream  1m;
 ```
 
 ```lua
@@ -115,17 +128,27 @@ local config = {
 }
 ```
 
+`cache_size` means the max numbers of upstream, and LRU will be work when store upstream more than `cache_size` numbers.
+
 update_upstream
 ----
 `syntax: ok = upstream.update_upstream(u, data)`
 
-update upstream or create new upstream from data. return true on success.
+update upstream or create new upstream from `data` with name `u`. return true on success.
 
 ```lua
 local ok = upstream.update_upstream("foo.com", {
     version = 1,
     hosts = {
-        {name = "127.0.0.1:8080", host = "127.0.0.1", port = 8080, weiht = 100, max_fails = 3, fail_timeout = 10, default_down = false}
+        {
+            name = "127.0.0.1:8080", 
+            host = "127.0.0.1", 
+            port = 8080,            -- default value
+            weight = 100,           -- default value
+            max_fails = 3,          -- default value
+            fail_timeout = 10,      -- default value, 10 second
+            default_down = false    -- default value
+        }
     }
 })
 if not ok then
@@ -133,13 +156,15 @@ if not ok then
 end
 ```
 
-max_fails, fail_timeout is not implement.
+The weight, max_fails, fail_timeout options for the sub module [lua-resty-upstream-balancer](https://github.com/toruneko/lua-resty-upstream/blob/master/lib/resty/balancer.md).
+
+And default_down option for [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) module.
 
 delete_upstream
 ------
 `syntax: upstream:delete_upstream(u)`
 
-delete upstream 
+delete upstream with upstream name `u`
 
 Author
 ======

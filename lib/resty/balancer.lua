@@ -127,7 +127,7 @@ local function get_weighted_round_robin_peer(u)
     end
 end
 
-local function proxy_pass(peer_factory, tries, include)
+local function proxy_pass(peer_factory, u, tries, include)
     if not type(peer_factory) == "function" then
         error("peer_factory must be a function")
     end
@@ -137,7 +137,7 @@ local function proxy_pass(peer_factory, tries, include)
     end
 
     if tries <= 0 then
-        local peer, err = peer_factory()
+        local peer, err = peer_factory(u)
         if not peer then
             return nil, err
         end
@@ -151,9 +151,9 @@ local function proxy_pass(peer_factory, tries, include)
     if state then
         local last_peer = ctx.balancer_last_peer
         if last_peer and last_peer.max_fails > 0 then
-            local fails = incr_peer_fails(last_peer.upstream, false, last_peer.name, last_peer.fail_timeout)
+            local fails = incr_peer_fails(u, false, last_peer.name, last_peer.fail_timeout)
             if fails >= last_peer.max_fails then
-                set_peer_temporarily_down(last_peer.upstream, false, last_peer.name, last_peer.fail_timeout)
+                set_peer_temporarily_down(u, false, last_peer.name, last_peer.fail_timeout)
                 LOGGER(WARN, last_peer.name, " temporarily unavailable.")
             end
         end
@@ -167,7 +167,7 @@ local function proxy_pass(peer_factory, tries, include)
         return nil, "max tries"
     end
 
-    local peer, err = peer_factory()
+    local peer, err = peer_factory(u)
     if not peer then
         return nil, err
     end
