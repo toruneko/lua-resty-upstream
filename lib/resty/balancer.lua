@@ -14,15 +14,17 @@ local setmetatable = setmetatable
 local tostring = tostring
 local tonumber = tonumber
 local math_abs = math.abs
-local ngx_time = ngx.time
 local error = error
 local type = type
 
 local getups = upstream.get_upstream
+local check_peer_down = upstream.check_peer_down
+local incr_peer_fails = upstream.incr_peer_fails
+local set_peer_temporarily_down = upstream.set_peer_temporarily_down
 
 local function get_single_peer(ups, u)
     local peer = ups.peers[1]
-    if not peer.down and ngx_time() > peer.timeout then
+    if not check_peer_down(u, false, peer.name) then
         return peer
     end
     return nil, "no available peer: " .. tostring(u)
@@ -50,11 +52,11 @@ local function get_round_robin_peer(u)
         end
 
         -- visit all peers, but no one avaliable, exit.
-        if cp == ups.cp and (peer.down or not (ngx_time() > peer.timeout)) then
+        if cp == ups.cp and check_peer_down(u, false, peer.name) then
             return nil, "no available peer: " .. tostring(u)
         end
 
-    until (not peer.down and ngx_time() > peer.timeout)
+    until not check_peer_down(u, false, peer.name)
 
     return peer
 end
@@ -80,7 +82,7 @@ local function get_source_ip_hash_peer(u)
         return nil, "no peer found: " .. tostring(u)
     end
 
-    if peer.down or not (ngx_time() > peer.timeout) then
+    if check_peer_down(u, false, peer.name) then
         return get_round_robin_peer(u)
     end
 
@@ -115,9 +117,7 @@ local function get_weighted_round_robin_peer(u)
             return nil, "no peer found: " .. tostring(u)
         end
 
-        if peer.weight >= ups.cw
-                and not peer.down
-                and ngx_time() > peer.timeout then
+        if peer.weight >= ups.cw and not check_peer_down(u, false, peer.name) then
             return peer
         end
         -- visit all peers, but no one avaliable, exit.
@@ -151,10 +151,9 @@ local function proxy_pass(peer_factory, tries, include)
     if state then
         local last_peer = ctx.balancer_last_peer
         if last_peer and last_peer.max_fails > 0 then
-            last_peer.fails = last_peer.fails + 1
-            last_peer.checked = ngx_time()
-            if last_peer.fails >= last_peer.max_fails then
-                last_peer.timeout = ngx_time() + last_peer.fail_timeout
+            local fails = incr_peer_fails(last_peer.upstream, false, last_peer.name, last_peer.fail_timeout)
+            if fails >= last_peer.max_fails then
+                set_peer_temporarily_down(last_peer.upstream, false, last_peer.name, last_peer.fail_timeout)
                 LOGGER(WARN, last_peer.name, " temporarily unavailable.")
             end
         end
@@ -171,15 +170,6 @@ local function proxy_pass(peer_factory, tries, include)
     local peer, err = peer_factory()
     if not peer then
         return nil, err
-    end
-
-    -- reset fails times
-    if peer.max_fails > 0 then
-        local time = ngx_time()
-        if (time - peer.checked) > peer.fail_timeout then
-            peer.fails = 0
-            peer.checked = time
-        end
     end
 
     -- check and set more tries

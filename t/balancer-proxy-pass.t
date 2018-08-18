@@ -193,7 +193,7 @@ enter backend
     }
 --- request
 GET /t
---- response_body_like: An error occurred.
+--- response_body_like: 502 Bad Gateway
 --- error_code: 502
 --- grep_error_log eval: qr{enter backend}
 --- grep_error_log_out
@@ -244,7 +244,7 @@ a1.foo.com:8080 temporarily unavailable
     }
 --- request
 GET /t
---- response_body_like: An error occurred.
+--- response_body_like: 502 Bad Gateway
 --- error_code: 502
 --- error_log
 enter backend

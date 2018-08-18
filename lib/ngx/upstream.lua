@@ -25,6 +25,14 @@ if not ok then
 end
 
 local upcache
+local peercache
+
+local function gen_peer_key(prefix, u, is_backup, id)
+    if is_backup then
+        return prefix .. u .. ":b:" .. id
+    end
+    return prefix .. u .. ":p:" .. id
+end
 
 local function getgcd(peers)
     local gcd = 0
@@ -44,12 +52,10 @@ end
 
 local function build_peers(ups, size)
     local peers = new_tab(size, 0)
-    local index = new_tab(0, size)
-    for name, peer in pairs(ups) do
+    for _, peer in pairs(ups) do
         peers[#peers + 1] = peer
-        index[name] = #peers
     end
-    return peers, index
+    return peers
 end
 
 local function update_upstream(u, data)
@@ -62,33 +68,26 @@ local function update_upstream(u, data)
 
     local ups = new_tab(0, #hosts)
     for _, peer in ipairs(hosts) do
+        peer.upstream = u
         peer.port = tonumber(peer.port) or 8080
         peer.weight = tonumber(peer.weight) or 100
         peer.max_fails = tonumber(peer.max_fails) or 3
         peer.fail_timeout = tonumber(peer.fail_timeout) or 10
-        peer.down = peer.default_down and true or false
-        peer.default_down = nil -- remove default_down field
-        peer.fails = 0      -- current fails times during fail_timeout
-        peer.checked = 0    -- check failed time
-        peer.timeout = 0    -- failed timeout (ngx.time() + fail_timeout)
+        if peer.default_down then
+            local key = gen_peer_key("d:", u, false, peer.name)
+            local value, err = peercache:get(key)
+            if value == nil then
+                peercache:set(key, peer.default_down)
+            end
+        end
+
         -- name and host must not be nil
         if peer.name and peer.host then
             ups[peer.name] = peer
         end
     end
 
-    local old = upcache:get(u)
-    if old then
-        -- exists already, merge healthcehck status
-        for _, peer in ipairs(old.peers) do
-            local p = ups[peer.name]
-            if p then
-                p.down = peer.down
-            end
-        end
-    end
-
-    local peers, index = build_peers(ups, #hosts)
+    local peers = build_peers(ups, #hosts)
     local max = getmax(peers)
     local gcd = getgcd(peers)
     return upcache:set(u, {
@@ -99,9 +98,7 @@ local function update_upstream(u, data)
         max = max, -- max weight
         cw = max, -- current weight
         peers = peers, -- peers
-        index = index, -- peers index
         backup_peers = {}, -- backup peers, not implement
-        backup_index = {} -- backup peers index, not implement
     })
 end
 
@@ -136,6 +133,8 @@ function _M.init(config)
     if not shared then
         error("no shared cache")
     end
+
+    peercache = shdict
     upcache = lrucache.new(shdict, config.cache_size or 1000)
 
     upcache:delete("lua.resty.upstream")
@@ -172,26 +171,32 @@ function _M.get_upstreams()
 end
 
 function _M.set_peer_down(u, is_backup, name, value)
-    local ups, err = getups(u)
-    if not ups then
-        return false, err
+    local key = gen_peer_key("d:", u, is_backup, name)
+    return peercache:set(key, value)
+end
+
+function _M.incr_peer_fails(u, is_backup, name, timeout)
+    local key = gen_peer_key("f:", u, is_backup, name)
+    return peercache:incr(key, 1, 0, timeout)
+end
+
+function _M.set_peer_temporarily_down(u, is_backup, name, timeout)
+    local key = gen_peer_key("t:", u, is_backup, name)
+    return peercache:set(key, true, timeout)
+end
+
+function _M.check_peer_down(u, is_backup, name)
+    local d_key = gen_peer_key("d:", u, is_backup, name)
+    if peercache:get(d_key) then
+        return true
     end
 
-    if is_backup then
-        local idx = ups.backup_index[name]
-        if not idx then
-            return false, "no peer found"
-        end
-        ups.backup_peers[idx].down = value
-    else
-        local idx = ups.index[name]
-        if not idx then
-            return false, "no peer found"
-        end
-        ups.peers[idx].down = value
+    local t_key = gen_peer_key("t:", u, is_backup, name)
+    if peercache:get(t_key) then
+        return true
     end
-    -- update cache, make other worker process to read
-    return upcache:set(u, ups)
+
+    return false
 end
 
 function _M.get_primary_peers(u)
