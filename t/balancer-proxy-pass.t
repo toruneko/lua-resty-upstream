@@ -43,6 +43,7 @@ our $HttpConfig = <<'_EOC_';
             if not ok then
                 ngx.log(ngx.ERR, err)
             end
+            ngx.exit(502)
         }
     }
 _EOC_

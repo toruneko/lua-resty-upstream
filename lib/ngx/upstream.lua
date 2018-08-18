@@ -178,7 +178,7 @@ end
 function _M.incr_peer_fails(u, is_backup, name, timeout)
     local key = gen_peer_key("f:", u, is_backup, name)
     if ngx_lua_version >= 10011 then
-        return peercache:incr(key, 1, 0, timeout)
+        return peercache:incr(key, 1, 0, timeout) or 0
     end
     local next, err = peercache:incr(key, 1)
     if not next then
