@@ -3,11 +3,7 @@ require "ngx.upstream.math"
 local lrucache = require "ngx.upstream.lrucache"
 
 local LOGGER = ngx.log
-local ERROR = ngx.ERR
 local NOTICE = ngx.NOTICE
-local WARN = ngx.WARN
-local INFO = ngx.INFO
-local DEBUG = ngx.DEBUG
 
 local tostring = tostring
 local tonumber = tonumber
@@ -30,49 +26,30 @@ end
 
 local upcache
 
-local function table_size(tab)
-    local size = 0
-    for _, item in pairs(tab) do
-        size = size + 1
-    end
-    return size
-end
-
-local function table_values(tab, size)
-    if not size then
-        size = table_size(tab)
-    end
-
-    local arr = new_tab(size, 0)
-    for _, val in pairs(tab) do
-        arr[#arr + 1] = val
-    end
-
-    return arr
-end
-
-local function getgcd(hosts)
+local function getgcd(peers)
     local gcd = 0
-    for _, peer in ipairs(hosts) do
+    for _, peer in ipairs(peers) do
         gcd = math_gcd(peer.weight, gcd)
     end
     return gcd
 end
 
-local function getmax(hosts)
+local function getmax(peers)
     local max = 0
-    for _, peer in ipairs(hosts) do
+    for _, peer in ipairs(peers) do
         max = math_max(max, peer.weight)
     end
     return max
 end
 
-local function create_index(hosts)
-    local index = new_tab(0, table_size(hosts))
-    for idx, peer in pairs(hosts) do
-        index[peer.name] = idx
+local function build_peers(ups, size)
+    local peers = new_tab(size, 0)
+    local index = new_tab(0, size)
+    for name, peer in pairs(ups) do
+        peers[#peers + 1] = peer
+        index[name] = #peers
     end
-    return index
+    return peers, index
 end
 
 local function update_upstream(u, data)
@@ -91,6 +68,9 @@ local function update_upstream(u, data)
         peer.fail_timeout = tonumber(peer.fail_timeout) or 10
         peer.down = peer.default_down and true or false
         peer.default_down = nil -- remove default_down field
+        peer.fails = 0      -- current fails times during fail_timeout
+        peer.checked = 0    -- check failed time
+        peer.timeout = 0    -- failed timeout (ngx.time() + fail_timeout)
         -- name and host must not be nil
         if peer.name and peer.host then
             ups[peer.name] = peer
@@ -108,20 +88,20 @@ local function update_upstream(u, data)
         end
     end
 
-    ups = table_values(ups, #hosts)
-    local max = getmax(ups)
-    local gcd = getgcd(ups)
+    local peers, index = build_peers(ups, #hosts)
+    local max = getmax(peers)
+    local gcd = getgcd(peers)
     return upcache:set(u, {
         version = version,
         cp = 1, -- current peer index
-        size = #ups, -- peers count size
+        size = #peers, -- peers count size
         gcd = gcd, -- GCD
         max = max, -- max weight
         cw = max, -- current weight
-        peers = ups, -- peers
-        index = create_index(ups), -- peers index
+        peers = peers, -- peers
+        index = index, -- peers index
         backup_peers = {}, -- backup peers, not implement
-        backup_index = create_index({}) -- backup peers index, not implement
+        backup_index = {} -- backup peers index, not implement
     })
 end
 
@@ -194,14 +174,20 @@ end
 function _M.set_peer_down(u, is_backup, name, value)
     local ups, err = getups(u)
     if not ups then
-        return nil, err
+        return false, err
     end
 
     if is_backup then
         local idx = ups.backup_index[name]
+        if not idx then
+            return false, "no peer found"
+        end
         ups.backup_peers[idx].down = value
     else
         local idx = ups.index[name]
+        if not idx then
+            return false, "no peer found"
+        end
         ups.peers[idx].down = value
     end
     -- update cache, make other worker process to read
