@@ -42,8 +42,8 @@ our $HttpConfig = <<'_EOC_';
             end, "foo.com", ngx.ctx.tries)
             if not ok then
                 ngx.log(ngx.ERR, err)
+                ngx.exit(502)
             end
-            ngx.exit(502)
         }
     }
 _EOC_
