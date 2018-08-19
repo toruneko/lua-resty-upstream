@@ -187,6 +187,7 @@ end
 
 local mt = { __index = balancer }
 local _M = setmetatable({
+    _VERSION = upstream._VERSION,
     get_round_robin_peer = get_round_robin_peer,
     get_source_ip_hash_peer = get_source_ip_hash_peer,
     get_weighted_round_robin_peer = get_weighted_round_robin_peer,
