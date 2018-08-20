@@ -84,7 +84,7 @@ init_worker_by_lua '
     end
 
     ngx.shared.healthcheck:flush_all()
-    local hc = require "resty.upstream.healthcheck"
+    local hc = require "resty.healthcheck"
     local ok, err = hc.spawn_checker{
         shm = "healthcheck",
         upstream = "foo.com",
@@ -103,7 +103,7 @@ init_worker_by_lua '
     location = /t {
         access_log off;
         content_by_lua '
-            local hc = require "resty.upstream.healthcheck"
+            local hc = require "resty.healthcheck"
             ngx.print(hc.status_page())
 
             ngx.sleep(0.52)
