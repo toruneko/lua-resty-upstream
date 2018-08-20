@@ -23,7 +23,7 @@ __DATA__
 --- config
     location = /t {
         content_by_lua_block {
-            require "ngx.upstream.math"
+            require "resty.upstream.math"
             local math_gcd = math.gcd
             ngx.say(math_gcd(100, 50))
         }
@@ -42,7 +42,7 @@ GET /t
 --- config
     location = /t {
         content_by_lua_block {
-            require "ngx.upstream.math"
+            require "resty.upstream.math"
             local math_gcd = math.gcd
             ngx.say(math_gcd(100, 51))
         }

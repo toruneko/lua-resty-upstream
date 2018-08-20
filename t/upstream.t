@@ -14,7 +14,7 @@ our $HttpConfig = <<'_EOC_';
     lua_package_path '$TEST_NGINX_CWD/lib/?.lua;$TEST_NGINX_CWD/t/lib/?.lua;;';
     lua_shared_dict upstream  5m;
     init_by_lua_block {
-        local upstream = require "ngx.upstream"
+        local upstream = require "resty.upstream"
         upstream.init({
             cache = "upstream",
             cache_size = 1000
@@ -31,7 +31,7 @@ __DATA__
 --- config
     location = /t {
         content_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             local ok = upstream.update_upstream("foo.com", {
                 version = 1,
                 hosts = {
@@ -57,7 +57,7 @@ true
 --- config
     location = /t {
         content_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 1,
                 hosts = {
@@ -95,7 +95,7 @@ foo.com
 --- config
     location = /t {
         content_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 1,
                 hosts = {
@@ -132,7 +132,7 @@ bar.com
 --- config
     location = /t {
         content_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 1,
                 hosts = {
@@ -179,7 +179,7 @@ a1.foo.com,a2.foo.com
 --- config
     location = /t {
         content_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 1,
                 hosts = {
@@ -212,7 +212,7 @@ true
 --- config
     location = /t {
         content_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 1,
                 hosts = {
@@ -240,7 +240,7 @@ GET /t
 --- config
     location = /t {
         content_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 100,
                 hosts = {

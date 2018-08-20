@@ -14,14 +14,14 @@ our $HttpConfig = <<'_EOC_';
     lua_package_path '$TEST_NGINX_CWD/lib/?.lua;$TEST_NGINX_CWD/t/lib/?.lua;;';
     lua_shared_dict upstream  5m;
     init_by_lua_block {
-        local upstream = require "ngx.upstream"
+        local upstream = require "resty.upstream"
         upstream.init({
             cache = "upstream",
             cache_size = 1000
         })
     }
     init_worker_by_lua_block {
-        local upstream = require "ngx.upstream"
+        local upstream = require "resty.upstream"
         upstream.update_upstream("foo.com", {
             version = 1,
             hosts = {
@@ -41,7 +41,7 @@ __DATA__
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.set_peer_down("foo.com", false, "a1.foo.com:8080", true)
             upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
         }
@@ -93,7 +93,7 @@ a1.foo.com:8080
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 2,
                 hosts = {
@@ -134,7 +134,7 @@ a2.foo.com:8080
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             local ok = upstream.update_upstream("foo.com", {
                 version = 2,
                 hosts = {
@@ -196,7 +196,7 @@ a2.foo.com:8080
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
         }
         content_by_lua_block {

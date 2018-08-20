@@ -1,6 +1,6 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
-require "ngx.upstream.math"
-local lrucache = require "ngx.upstream.lrucache"
+require "resty.upstream.math"
+local lrucache = require "resty.upstream.lrucache"
 
 local LOGGER = ngx.log
 local ERROR = ngx.ERR
@@ -9,6 +9,7 @@ local WARN = ngx.WARN
 local INFO = ngx.INFO
 local DEBUG = ngx.DEBUG
 
+local setmetatable = setmetatable
 local tostring = tostring
 local tonumber = tonumber
 local shared = ngx.shared
@@ -235,4 +236,12 @@ function _M.get_version(u)
     return ups.version
 end
 
-return _M
+local ok, upstream = pcall(require, "ngx.upstream")
+if ok then
+    local m = setmetatable(_M, { __index = upstream })
+    package.loaded["ngx.upstream"] = m
+    return m
+else
+    package.loaded["ngx.upstream"] = _M
+    return _M
+end

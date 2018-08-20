@@ -18,7 +18,7 @@ our $HttpConfig = <<_EOC_;
     lua_package_path "$pwd/lib/?.lua;$pwd/t/lib/?.lua;;";
     lua_shared_dict upstream  5m;
     init_by_lua_block {
-        local upstream = require "ngx.upstream"
+        local upstream = require "resty.upstream"
         upstream.init({
             cache = "upstream",
             cache_size = 1000
@@ -70,7 +70,7 @@ server {
 
 lua_shared_dict healthcheck 1m;
 init_worker_by_lua '
-    local upstream = require "ngx.upstream"
+    local upstream = require "resty.upstream"
     local ok = upstream.update_upstream("foo.com", {
         version = 1,
         hosts = {
