@@ -14,20 +14,18 @@ our $HttpConfig = <<'_EOC_';
     lua_package_path '$TEST_NGINX_CWD/lib/?.lua;$TEST_NGINX_CWD/t/lib/?.lua;;';
     lua_shared_dict upstream  1m;
     init_by_lua_block {
-        require "resty.healthcheck"
-        local upstream = require "resty.upstream"
+        local upstream = require "ngx.upstream"
         upstream.init({
             cache = "upstream",
             cache_size = 10
         })
     }
     init_worker_by_lua_block {
-        local upstream = require "resty.upstream"
+        local upstream = require "ngx.upstream"
         upstream.update_upstream("foo.com", {
             version = 1,
             hosts = {
                 {name = "a1.foo.com:8080", host = "a1.foo.com", port = 8080, weight = 100, default_down = false},
-                {name = "a2.foo.com:8080", host = "a2.foo.com", port = 8080, weight = 100, default_down = false}
             }
         })
     }
@@ -42,9 +40,8 @@ __DATA__
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "resty.upstream"
+            local upstream = require "ngx.upstream"
             upstream.set_peer_down("foo.com", false, "a1.foo.com:8080", true)
-            upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
         }
         content_by_lua_block {
             local balancer = require "resty.balancer"
@@ -79,9 +76,9 @@ no available peer
 --- request
 GET /t
 --- response_body
-a2.foo.com:8080
 a1.foo.com:8080
-a2.foo.com:8080
+a1.foo.com:8080
+a1.foo.com:8080
 a1.foo.com:8080
 --- error_code: 200
 --- no_error_log
@@ -93,19 +90,9 @@ a1.foo.com:8080
 --- http_config eval: $::HttpConfig
 --- config
     location = /t {
-        access_by_lua_block {
-            local upstream = require "resty.upstream"
-            upstream.update_upstream("foo.com", {
-                version = 2,
-                hosts = {
-                    {name = "a1.foo.com:8080", host = "a1.foo.com", port = 8080, weight = 50, default_down = false},
-                    {name = "a2.foo.com:8080", host = "a2.foo.com", port = 8080, weight = 100, default_down = false}
-                }
-            })
-        }
         content_by_lua_block {
             local balancer = require "resty.balancer"
-            for i = 1, 10 do
+            for i = 1, 4 do
                 local peer = balancer.get_weighted_round_robin_peer("foo.com")
                 ngx.say(peer.name)
             end
@@ -114,16 +101,10 @@ a1.foo.com:8080
 --- request
 GET /t
 --- response_body
-a2.foo.com:8080
 a1.foo.com:8080
-a2.foo.com:8080
-a2.foo.com:8080
 a1.foo.com:8080
-a2.foo.com:8080
-a2.foo.com:8080
 a1.foo.com:8080
-a2.foo.com:8080
-a2.foo.com:8080
+a1.foo.com:8080
 --- error_code: 200
 --- no_error_log
 [error]
@@ -135,19 +116,8 @@ a2.foo.com:8080
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "resty.upstream"
-            local ok = upstream.update_upstream("foo.com", {
-                version = 2,
-                hosts = {
-                    {name = "a1.foo.com:8080", host = "a1.foo.com", port = 8080, weight = 50, default_down = false},
-                    {name = "a2.foo.com:8080", host = "a2.foo.com", port = 8080, weight = 75, default_down = false}
-                }
-            })
-            if not ok then
-                ngx.log(ngx.ERR, "update upstream failed")
-            end
+            local upstream = require "ngx.upstream"
             upstream.set_peer_down("foo.com", false, "a1.foo.com:8080", true)
-            upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
         }
         content_by_lua_block {
             local balancer = require "resty.balancer"
@@ -182,10 +152,10 @@ no available peer
 --- request
 GET /t
 --- response_body
-a2.foo.com:8080
-a2.foo.com:8080
-a2.foo.com:8080
-a2.foo.com:8080
+a1.foo.com:8080
+a1.foo.com:8080
+a1.foo.com:8080
+a1.foo.com:8080
 --- error_code: 200
 --- no_error_log
 [error]
@@ -197,24 +167,21 @@ a2.foo.com:8080
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "resty.upstream"
-            upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
+            local upstream = require "ngx.upstream"
+            upstream.set_peer_down("foo.com", false, "a1.foo.com:8080", true)
         }
         content_by_lua_block {
             local balancer = require "resty.balancer"
-            for i = 1, 4 do
-                local peer = balancer.get_source_ip_hash_peer("foo.com")
-                ngx.say(peer.name)
+            local peer, err = balancer.get_source_ip_hash_peer("foo.com")
+            if not peer then
+                ngx.log(ngx.ERR, err)
             end
         }
     }
 --- request
 GET /t
---- response_body
-a1.foo.com:8080
-a1.foo.com:8080
-a1.foo.com:8080
-a1.foo.com:8080
+--- no_response_body
 --- error_code: 200
---- no_error_log
+--- error_log
+no available peer
 [error]

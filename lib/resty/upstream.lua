@@ -3,12 +3,9 @@ require "resty.upstream.math"
 local lrucache = require "resty.upstream.lrucache"
 
 local LOGGER = ngx.log
-local ERROR = ngx.ERR
 local NOTICE = ngx.NOTICE
-local WARN = ngx.WARN
-local INFO = ngx.INFO
-local DEBUG = ngx.DEBUG
 
+local ngx_lua_version = ngx.config.ngx_lua_version
 local tostring = tostring
 local tonumber = tonumber
 local shared = ngx.shared
@@ -20,7 +17,7 @@ local math_max = math.max
 local math_gcd = math.gcd
 
 local _M = {
-    _VERSION = '0.01'
+    _VERSION = '0.02'
 }
 
 local ok, new_tab = pcall(require, "table.new")
@@ -29,50 +26,37 @@ if not ok then
 end
 
 local upcache
+local peercache
 
-local function table_size(tab)
-    local size = 0
-    for _, item in pairs(tab) do
-        size = size + 1
+local function gen_peer_key(prefix, u, is_backup, id)
+    if is_backup then
+        return prefix .. u .. ":b:" .. id
     end
-    return size
+    return prefix .. u .. ":p:" .. id
 end
 
-local function table_values(tab, size)
-    if not size then
-        size = table_size(tab)
-    end
-
-    local arr = new_tab(size, 0)
-    for _, val in pairs(tab) do
-        arr[#arr + 1] = val
-    end
-
-    return arr
-end
-
-local function getgcd(hosts)
+local function getgcd(peers)
     local gcd = 0
-    for _, peer in ipairs(hosts) do
+    for _, peer in ipairs(peers) do
         gcd = math_gcd(peer.weight, gcd)
     end
     return gcd
 end
 
-local function getmax(hosts)
+local function getmax(peers)
     local max = 0
-    for _, peer in ipairs(hosts) do
+    for _, peer in ipairs(peers) do
         max = math_max(max, peer.weight)
     end
     return max
 end
 
-local function create_index(hosts)
-    local index = new_tab(0, table_size(hosts))
-    for idx, peer in pairs(hosts) do
-        index[peer.name] = idx
+local function build_peers(ups, size)
+    local peers = new_tab(size, 0)
+    for _, peer in pairs(ups) do
+        peers[#peers + 1] = peer
     end
-    return index
+    return peers
 end
 
 local function update_upstream(u, data)
@@ -89,39 +73,32 @@ local function update_upstream(u, data)
         peer.weight = tonumber(peer.weight) or 100
         peer.max_fails = tonumber(peer.max_fails) or 3
         peer.fail_timeout = tonumber(peer.fail_timeout) or 10
-        peer.down = peer.default_down and true or false
-        peer.default_down = nil -- remove default_down field
+        if peer.default_down then
+            local key = gen_peer_key("d:", u, false, peer.name)
+            local value, err = peercache:get(key)
+            if value == nil then
+                peercache:set(key, peer.default_down)
+            end
+        end
+
         -- name and host must not be nil
         if peer.name and peer.host then
             ups[peer.name] = peer
         end
     end
 
-    local old = upcache:get(u)
-    if old then
-        -- exists already, merge healthcehck status
-        for _, peer in ipairs(old.peers) do
-            local p = ups[peer.name]
-            if p then
-                p.down = peer.down
-            end
-        end
-    end
-
-    ups = table_values(ups, #hosts)
-    local max = getmax(ups)
-    local gcd = getgcd(ups)
+    local peers = build_peers(ups, #hosts)
+    local max = getmax(peers)
+    local gcd = getgcd(peers)
     return upcache:set(u, {
         version = version,
         cp = 1, -- current peer index
-        size = #ups, -- peers count size
+        size = #peers, -- peers count size
         gcd = gcd, -- GCD
         max = max, -- max weight
         cw = max, -- current weight
-        peers = ups, -- peers
-        index = create_index(ups), -- peers index
+        peers = peers, -- peers
         backup_peers = {}, -- backup peers, not implement
-        backup_index = create_index({}) -- backup peers index, not implement
     })
 end
 
@@ -156,6 +133,8 @@ function _M.init(config)
     if not shared then
         error("no shared cache")
     end
+
+    peercache = shdict
     upcache = lrucache.new(shdict, config.cache_size or 1000)
 
     upcache:delete("lua.resty.upstream")
@@ -192,20 +171,43 @@ function _M.get_upstreams()
 end
 
 function _M.set_peer_down(u, is_backup, name, value)
-    local ups, err = getups(u)
-    if not ups then
-        return nil, err
+    local key = gen_peer_key("d:", u, is_backup, name)
+    return peercache:set(key, value)
+end
+
+function _M.incr_peer_fails(u, is_backup, name, timeout)
+    local key = gen_peer_key("f:", u, is_backup, name)
+    if ngx_lua_version >= 10012 then
+        return peercache:incr(key, 1, 0, timeout) or 0
+    end
+    local next, err = peercache:incr(key, 1)
+    if not next then
+        if err == "not found" or err == "not a number" then
+            return peercache:set(key, 1, timeout) and 1 or 0
+        end
+        return 0
     end
 
-    if is_backup then
-        local idx = ups.backup_index[name]
-        ups.backup_peers[idx].down = value
-    else
-        local idx = ups.index[name]
-        ups.peers[idx].down = value
+    return next
+end
+
+function _M.set_peer_temporarily_down(u, is_backup, name, timeout)
+    local key = gen_peer_key("t:", u, is_backup, name)
+    return peercache:set(key, true, timeout)
+end
+
+function _M.check_peer_down(u, is_backup, name)
+    local d_key = gen_peer_key("d:", u, is_backup, name)
+    if peercache:get(d_key) then
+        return true
     end
-    -- update cache, make other worker process to read
-    return upcache:set(u, ups)
+
+    local t_key = gen_peer_key("t:", u, is_backup, name)
+    if peercache:get(t_key) then
+        return true
+    end
+
+    return false
 end
 
 function _M.get_primary_peers(u)

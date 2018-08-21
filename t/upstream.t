@@ -190,11 +190,11 @@ a1.foo.com,a2.foo.com
             })
             local ups = upstream.get_upstream("foo.com")
             upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", false)
-            ngx.say(ups.peers[2].down)
+            ngx.say(upstream.check_peer_down("foo.com", false, "a2.foo.com:8080"))
 
             upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
             local ups = upstream.get_upstream("foo.com")
-            ngx.say(ups.peers[2].down)
+            ngx.say(upstream.check_peer_down("foo.com", false, "a2.foo.com:8080"))
         }
     }
 --- request
