@@ -32,7 +32,7 @@ Synopsis
 
     lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";
     lua_shared_dict upstream    1m;
-    lua_shared_dict healthcheck 1m;
+    lua_shared_dict monitor 1m;
     
     server {
         location = /t {
@@ -61,9 +61,9 @@ Synopsis
                     return
                 end
 
-                local healthcheck = require "resty.upstream.healthcheck"
-                local ok, err = healthcheck.spawn_checker({
-                    shm = "healthcheck",
+                local monitor = require "resty.upstream.monitor"
+                local ok, err = monitor.spawn_checker({
+                    shm = "monitor",
                     upstream = "foo.com",
                     type = "http",
                     http_req = "HEAD /status HTTP/1.0\r\nHost: foo.com\r\n\r\n",

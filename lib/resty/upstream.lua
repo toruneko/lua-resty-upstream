@@ -17,7 +17,7 @@ local math_max = math.max
 local math_gcd = math.gcd
 
 local _M = {
-    _VERSION = '0.02'
+    _VERSION = '0.0.3'
 }
 
 local ok, new_tab = pcall(require, "table.new")
