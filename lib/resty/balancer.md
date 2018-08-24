@@ -1,7 +1,7 @@
 Name
 =============
 
-lua-resty-balancer - pure lua server balancer module
+lua-resty-upstream-balancer - pure lua server balancer module
 
 Status
 ======
@@ -22,7 +22,7 @@ Synopsis
     # nginx.conf:
 
     lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";
-    lua_shared_dict upstream    5m;
+    lua_shared_dict upstream    1m;
     lua_shared_dict healthcheck 1m;
     
     server {
@@ -40,7 +40,35 @@ Synopsis
             }
         }
     }
+```
+
+```lua
+    # nginx.conf:
+
+    lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";
+    lua_shared_dict upstream    1m;
+    lua_shared_dict healthcheck 1m;
     
+    server {
+        location = /t {
+
+            balancer_by_lua_block {
+                -- resty.balancer extend ngx.balancer
+                -- use resty.balancer instead of ngx.balanacer 
+                -- the peer_factory like:
+                -- local peer_factory = function(u)
+                --    return balancer.get_round_robin_peer(u)
+                -- end
+
+                local balancer = require "resty.balancer"
+                local ok, err = balancer.proxy_pass(peer_factory, "foo.com", 3, false)
+                if not ok then
+                    ngx.log(ngx.ERR, err)
+                end
+                ngx.exit(502)
+            }
+        }
+    }
 ```
 
 Methods
@@ -55,6 +83,43 @@ To load this library,
     local balancer = require "resty.balancer"
 ```
 
+proxy_pass
+---
+`syntax: ok, err = balancer.proxy_pass(peer_factory, u, tries?, include?)`
+
+`phase: balancer_by_lua`
+
+do proxy pass considered `max_fails` and `fail_timeout` options from parent module `lua-resty-upstream`
+
+The optional `peer_factory` argument specifies a peer factory function. The factory function has only one argument which means upstream name, and returns two values:
+
+- `peer`: the upstream peer for current request.
+- `err`: textual error message
+
+```lua
+local peer_factory = function(u)
+    return balancer.get_round_robin_peer(u)
+end
+```
+
+The optional `u` argument specifies upstream name for current request.
+
+The optional `tries` argument specifies tries performed when the current attempt fails. You can see `ngx.balancer` document for more infomations. By default, the argument is set to `0`.
+
+The optional `inlcude` argument specifies the last one attempt should be considered for `max_fails` or not. By default, the argument is set to `false`.
+
+if considered last one attempt(which is fails), `balancer.proxy_pass` will be returns an error message `max tries`.
+
+if not considered, proxy pass the request, and response to client.
+
+```lua
+local ok, err = balancer.proxy_pass(peer_factory, u)
+if not ok then
+    ngx.log(ngx.ERR, err)
+end
+ngx.exit(502)
+```
+
 get_round_robin_peer
 ---
 `syntax: peer, err = balancer.get_round_robin_peer(u)`
@@ -66,6 +131,7 @@ local peer, err = balancer.get_round_robin_peer(u)
 if not peer then 
     ngx.log(ngx.ERR, err)
 end
+-- balancer_by_lua phase support only
 balancer.set_current_peer(peer.host, peer.port)
 ```
 
@@ -80,6 +146,7 @@ local peer, err = balancer.get_source_ip_hash_peer(u)
 if not peer then 
     ngx.log(ngx.ERR, err)
 end
+-- balancer_by_lua phase support only
 balancer.set_current_peer(peer.host, peer.port)
 ```
 
@@ -94,6 +161,7 @@ local peer, err = balancer.get_weighted_round_robin_peer(u)
 if not peer then 
     ngx.log(ngx.ERR, err)
 end
+-- balancer_by_lua phase support only
 balancer.set_current_peer(peer.host, peer.port)
 ```
 
