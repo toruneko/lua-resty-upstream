@@ -5,7 +5,7 @@ local iputils = require "resty.iputils"
 iputils.enable_lrucache()
 
 local balancer = require "ngx.balancer"
-local upstream = require "ngx.upstream"
+local upstream = require "resty.upstream"
 
 local LOGGER = ngx.log
 local WARN = ngx.WARN

@@ -14,7 +14,7 @@ our $HttpConfig = <<'_EOC_';
     lua_package_path '$TEST_NGINX_CWD/lib/?.lua;$TEST_NGINX_CWD/t/lib/?.lua;;';
     lua_shared_dict upstream  1m;
     init_by_lua_block {
-        require "resty.healthcheck"
+        require "resty.upstream.healthcheck"
         local upstream = require "resty.upstream"
         upstream.init({
             cache = "upstream",
@@ -47,7 +47,7 @@ __DATA__
             upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
         }
         content_by_lua_block {
-            local balancer = require "resty.balancer"
+            local balancer = require "resty.upstream.balancer"
             local peer, err = balancer.get_round_robin_peer("foo.com")
             if not peer then
                 ngx.log(ngx.ERR, err)
@@ -69,7 +69,7 @@ no available peer
 --- config
     location = /t {
         content_by_lua_block {
-            local balancer = require "resty.balancer"
+            local balancer = require "resty.upstream.balancer"
             for i = 1, 4 do
                 local peer = balancer.get_round_robin_peer("foo.com")
                 ngx.say(peer.name)
@@ -104,7 +104,7 @@ a1.foo.com:8080
             })
         }
         content_by_lua_block {
-            local balancer = require "resty.balancer"
+            local balancer = require "resty.upstream.balancer"
             for i = 1, 10 do
                 local peer = balancer.get_weighted_round_robin_peer("foo.com")
                 ngx.say(peer.name)
@@ -150,7 +150,7 @@ a2.foo.com:8080
             upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
         }
         content_by_lua_block {
-            local balancer = require "resty.balancer"
+            local balancer = require "resty.upstream.balancer"
             local peer, err = balancer.get_weighted_round_robin_peer("foo.com")
             if not peer then
                 ngx.log(ngx.ERR, err)
@@ -172,7 +172,7 @@ no available peer
 --- config
     location = /t {
         content_by_lua_block {
-            local balancer = require "resty.balancer"
+            local balancer = require "resty.upstream.balancer"
             for i = 1, 4 do
                 local peer = balancer.get_source_ip_hash_peer("foo.com")
                 ngx.say(peer.name)
@@ -201,7 +201,7 @@ a2.foo.com:8080
             upstream.set_peer_down("foo.com", false, "a2.foo.com:8080", true)
         }
         content_by_lua_block {
-            local balancer = require "resty.balancer"
+            local balancer = require "resty.upstream.balancer"
             for i = 1, 4 do
                 local peer = balancer.get_source_ip_hash_peer("foo.com")
                 ngx.say(peer.name)
