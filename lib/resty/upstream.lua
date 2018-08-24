@@ -1,6 +1,6 @@
 -- Copyright (C) by Jianhao Dai (Toruneko)
-require "ngx.upstream.math"
-local lrucache = require "ngx.upstream.lrucache"
+require "resty.upstream.math"
+local lrucache = require "resty.upstream.lrucache"
 
 local LOGGER = ngx.log
 local NOTICE = ngx.NOTICE
@@ -17,7 +17,7 @@ local math_max = math.max
 local math_gcd = math.gcd
 
 local _M = {
-    _VERSION = '0.02'
+    _VERSION = '0.0.3'
 }
 
 local ok, new_tab = pcall(require, "table.new")

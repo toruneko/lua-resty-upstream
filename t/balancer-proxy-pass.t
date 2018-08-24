@@ -17,14 +17,14 @@ our $HttpConfig = <<'_EOC_';
         if ngx.config.ngx_lua_version >=10012 then
             require "resty.core.shdict"
         end
-        local upstream = require "ngx.upstream"
+        local upstream = require "resty.upstream"
         upstream.init({
             cache = "upstream",
             cache_size = 10
         })
     }
     init_worker_by_lua_block {
-        local upstream = require "ngx.upstream"
+        local upstream = require "resty.upstream"
         upstream.update_upstream("foo.com", {
             version = 1,
             hosts = {
@@ -39,7 +39,7 @@ our $HttpConfig = <<'_EOC_';
     upstream dyups_server {
         server 0.0.0.0:80;
         balancer_by_lua_block {
-            local balancer = require "resty.balancer"
+            local balancer = require "resty.upstream.balancer"
             local ok, err = balancer.proxy_pass(function(u)
                 return balancer.get_round_robin_peer(u)
             end, "foo.com", ngx.ctx.tries)
@@ -115,7 +115,7 @@ enter backend
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 2,
                 hosts = {
@@ -160,7 +160,7 @@ enter backend
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 2,
                 hosts = {
@@ -207,7 +207,7 @@ a1.foo.com:8080 temporarily unavailable
 --- config
     location = /t {
         access_by_lua_block {
-            local upstream = require "ngx.upstream"
+            local upstream = require "resty.upstream"
             upstream.update_upstream("foo.com", {
                 version = 2,
                 hosts = {
@@ -256,7 +256,7 @@ no available peer: foo.com
         access_by_lua_block {
             local init = ngx.req.get_uri_args()["init"]
             if init == "1" then
-                local upstream = require "ngx.upstream"
+                local upstream = require "resty.upstream"
                 upstream.update_upstream("foo.com", {
                     version = 2,
                     hosts = {

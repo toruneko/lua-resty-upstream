@@ -15,25 +15,14 @@ Description
 
 This library requires an nginx build with [ngx_lua module](https://github.com/openresty/lua-nginx-module), and [LuaJIT 2.0](http://luajit.org/luajit.html).
 
-Specially, you can not install nginx with module [lua-upstream-module](https://github.com/openresty/lua-upstream-nginx-module).
-
-for example:
-```text
-    tar -xzvf openresty-VERSION.tar.gz
-    cd openresty-VERSION
-    ./configure --without-http_lua_upstream_module
-    make
-    make install
-```
-
-Because of lua-resty-module implements the interface of lua-upstream-module. And you can use [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) module to check upstream peer status all the same.
-
 Dependencies
 ==========
 
-- [lua-resty-lrucache](https://github.com/openresty/lua-resty-lrucache)
-- [lua-resty-iputils](https://github.com/hamishforbes/lua-resty-iputils.git)
+- [lua-resty-core](https://github.com/openresty/lua-resty-core)
 - [ngx.balancer](https://github.com/openresty/lua-resty-core/blob/master/lib/ngx/balancer.md)
+- [lua-resty-lrucache](https://github.com/openresty/lua-resty-lrucache)
+- [lua-resty-iputils](https://github.com/hamishforbes/lua-resty-iputils)
+- [lua-resty-http](https://github.com/pintsized/lua-resty-http)
 
 Synopsis
 ========
@@ -43,12 +32,12 @@ Synopsis
 
     lua_package_path "/path/to/lua-resty-upstream/lib/?.lua;;";
     lua_shared_dict upstream    1m;
-    lua_shared_dict healthcheck 1m;
+    lua_shared_dict monitor 1m;
     
     server {
         location = /t {
             content_by_lua_block {
-                local upstream = require "ngx.upstream"
+                local upstream = require "resty.upstream"
                 upstream.init({
                     cache = "upstream",
                     cache_size = 100
@@ -71,14 +60,21 @@ Synopsis
                 if not ok then
                     return
                 end
-                -- if you installed healthcheck module. 
-                -- https://github.com/openresty/lua-resty-upstream-healthcheck
-                local healthcheck = require "resty.upstream.healthcheck"
-                local ok, err = healthcheck.spawn_checker({
-                    shm = "healthcheck",
+
+                local monitor = require "resty.upstream.monitor"
+                local ok, err = monitor.spawn_checker({
+                    shm = "monitor",
                     upstream = "foo.com",
                     type = "http",
-                    http_req = "GET /status HTTP/1.0\r\nHost: foo.com\r\n\r\n",
+                    http_req = "HEAD /status HTTP/1.0\r\nHost: foo.com\r\n\r\n",
+                    -- if required "lua-resty-http"
+                    -- http_req = {
+                    --     method = "HEAD",
+                    --     path = "/ok.htm"
+                    --     headers = {
+                    --         Host = "foo.com"
+                    --     }
+                    -- }
                     interval = 2000,
                     timeout = 1000,
                     fall = 3,
@@ -106,7 +102,7 @@ To load this library,
 2. you use `require` to load the library into a local Lua variable:
 
 ```lua
-    local upstream = require "ngx.upstream"
+    local upstream = require "resty.upstream"
 ```
 
 init
@@ -158,7 +154,7 @@ end
 
 The weight, max_fails, fail_timeout options for the sub module [lua-resty-upstream-balancer](https://github.com/toruneko/lua-resty-upstream/blob/master/lib/resty/balancer.md).
 
-And default_down option for [lua-resty-healthcheck](https://github.com/openresty/lua-resty-upstream-healthcheck) module.
+And default_down option for sub module [lua-resty-upstream-monitor](https://github.com/toruneko/lua-resty-upstream/blob/master/lib/resty/monitor.md).
 
 delete_upstream
 ------

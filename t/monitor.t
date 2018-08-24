@@ -18,7 +18,7 @@ our $HttpConfig = <<_EOC_;
     lua_package_path "$pwd/lib/?.lua;$pwd/t/lib/?.lua;;";
     lua_shared_dict upstream  5m;
     init_by_lua_block {
-        local upstream = require "ngx.upstream"
+        local upstream = require "resty.upstream"
         upstream.init({
             cache = "upstream",
             cache_size = 1000
@@ -39,7 +39,7 @@ __DATA__
 upstream foo.com {
     server 0.0.0.0;
     balancer_by_lua_block {
-        local balancer = require "resty.balancer"
+        local balancer = require "resty.upstream.balancer"
         local peer, err = balancer.get_weighted_round_robin_peer("foo.com")
         if not peer then
             error(err)
@@ -68,9 +68,9 @@ server {
     }
 }
 
-lua_shared_dict healthcheck 1m;
+lua_shared_dict monitor 1m;
 init_worker_by_lua '
-    local upstream = require "ngx.upstream"
+    local upstream = require "resty.upstream"
     local ok = upstream.update_upstream("foo.com", {
         version = 1,
         hosts = {
@@ -83,10 +83,10 @@ init_worker_by_lua '
         ngx.log(ngx.ERR, "update upstream failed")
     end
 
-    ngx.shared.healthcheck:flush_all()
-    local hc = require "resty.upstream.healthcheck"
+    ngx.shared.monitor:flush_all()
+    local hc = require "resty.upstream.monitor"
     local ok, err = hc.spawn_checker{
-        shm = "healthcheck",
+        shm = "monitor",
         upstream = "foo.com",
         type = "http",
         http_req = "GET /status HTTP/1.0\\\\r\\\\nHost: localhost\\\\r\\\\n\\\\r\\\\n",
@@ -103,7 +103,7 @@ init_worker_by_lua '
     location = /t {
         access_log off;
         content_by_lua '
-            local hc = require "resty.upstream.healthcheck"
+            local hc = require "resty.upstream.monitor"
             ngx.print(hc.status_page())
 
             ngx.sleep(0.52)
