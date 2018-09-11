@@ -125,12 +125,9 @@ init_worker_by_lua '
 GET /t
 
 --- response_body
-Upstream foo.com
-    Primary Peers
-        127.0.0.1:12354 up
-        127.0.0.1:12356 up
-        127.0.0.1:12355 up
-    Backup Peers
+foo.com,127.0.0.1:12354,100,up,1,0,1,0
+foo.com,127.0.0.1:12356,100,up,1,0,1,0
+foo.com,127.0.0.1:12355,100,up,1,0,1,0
 upstream addr: 127.0.0.1:12356
 upstream addr: 127.0.0.1:12355
 upstream addr: 127.0.0.1:12354

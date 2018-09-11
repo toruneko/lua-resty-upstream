@@ -505,15 +505,15 @@ local function do_check(ctx)
     end
 end
 
-local function update_upstream_checker_status(upstream, ctx)
+local function update_upstream_checker_status(upstream, new_ctx)
     -- remove old checker
-    local checker = upstream_checker_statuses[upstream]
-    if checker then
-        checker.started = false
+    local ctx = upstream_checker_statuses[upstream]
+    if ctx then
+        ctx.started = false
     end
 
     -- save new checker
-    upstream_checker_statuses[upstream] = ctx
+    upstream_checker_statuses[upstream] = new_ctx
 end
 
 local check
@@ -648,23 +648,48 @@ function _M.kill_checker(u)
     update_upstream_checker_status[u] = nil
 end
 
-local function gen_peers_status_info(peers, bits, idx)
-    local npeers = #peers
-    for i = 1, npeers do
-        local peer = peers[i]
-        bits[idx] = "        "
-        bits[idx + 1] = peer.name
+local function get_version(ctx)
+    local dict = ctx.dict
+    if not dict then
+        return -1
+    end
+
+    local key = "v:" .. ctx.upstream
+    return dict:get(key) or ctx.version or -1
+end
+
+local function get_peer_status(ctx, is_backup, peer, down)
+    local dict = ctx.dict
+    if not dict then
+        return 0
+    end
+
+    if down then
+        return dict:get(gen_peer_key("nok:", ctx.upstream, is_backup, peer.name)) or 0
+    else
+        return dict:get(gen_peer_key("ok:", ctx.upstream, is_backup, peer.name)) or 0
+    end
+end
+
+local function gen_peers_status_info(u, ctx, is_backup, peers, bits, idx)
+    for _, peer in ipairs(peers) do
+        bits[idx] = u .. ","
+        bits[idx + 1] = peer.name .. "," .. peer.weight .. ","
         if peer.down then
-            bits[idx + 2] = " DOWN\n"
+            bits[idx + 2] = "down,"
         else
-            bits[idx + 2] = " up\n"
+            bits[idx + 2] = "up,"
         end
-        idx = idx + 3
+        bits[idx + 3] = tostring(get_upstream_version(ctx.upstream) or -1) .. "," ..
+                tostring(get_version(ctx)) .. "," ..
+                tostring(get_peer_status(ctx, is_backup, peer, false) or 0) .. "," ..
+                tostring(get_peer_status(ctx, is_backup, peer, true) or 0) .. "\n"
+        idx = idx + 4
     end
     return idx
 end
 
-function _M.status_page()
+function _M.status_page(upstream)
     -- generate an HTML page
     local us, err = get_upstreams()
     if not us then
@@ -675,44 +700,19 @@ function _M.status_page()
     local bits = new_tab(n * 20, 0)
     local idx = 1
     for i = 1, n do
-        if i > 1 then
-            bits[idx] = "\n"
-            idx = idx + 1
-        end
-
         local u = us[i]
 
-        bits[idx] = "Upstream "
-        bits[idx + 1] = u
-        idx = idx + 2
+        local ctx = upstream_checker_statuses[u] or {}
 
-        local ncheckers = upstream_checker_statuses[u]
-        if not ncheckers or not ncheckers.started then
-            bits[idx] = " (NO checkers)"
-            idx = idx + 1
+        local peers = get_primary_peers(u)
+        if peers then
+            idx = gen_peers_status_info(u, ctx, false, peers, bits, idx)
         end
 
-        bits[idx] = "\n    Primary Peers\n"
-        idx = idx + 1
-
-        local peers, err = get_primary_peers(u)
-        if not peers then
-            return "failed to get primary peers in upstream " .. u .. ": "
-                   .. err
+        peers = get_backup_peers(u)
+        if peers then
+            idx = gen_peers_status_info(u, ctx, true, peers, bits, idx)
         end
-
-        idx = gen_peers_status_info(peers, bits, idx)
-
-        bits[idx] = "    Backup Peers\n"
-        idx = idx + 1
-
-        peers, err = get_backup_peers(u)
-        if not peers then
-            return "failed to get backup peers in upstream " .. u .. ": "
-                   .. err
-        end
-
-        idx = gen_peers_status_info(peers, bits, idx)
     end
     return concat(bits)
 end
