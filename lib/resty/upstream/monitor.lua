@@ -505,24 +505,23 @@ local function do_check(ctx)
     end
 end
 
-local function update_upstream_checker_status(upstream, success)
-    local cnt = upstream_checker_statuses[upstream]
-    if not cnt then
-        cnt = 0
+local function update_upstream_checker_status(upstream, ctx)
+    -- remove old checker
+    local checker = upstream_checker_statuses[upstream]
+    if checker then
+        checker.started = false
     end
 
-    if success then
-        cnt = cnt + 1
-    else
-        cnt = cnt - 1
-    end
-
-    upstream_checker_statuses[upstream] = cnt
+    -- save new checker
+    upstream_checker_statuses[upstream] = ctx
 end
 
 local check
 check = function (premature, ctx)
     if premature then
+        return
+    end
+    if not ctx.started then
         return
     end
 
@@ -537,7 +536,7 @@ check = function (premature, ctx)
             errlog("failed to create timer: ", err)
         end
 
-        update_upstream_checker_status(ctx.upstream, false)
+        update_upstream_checker_status(ctx.upstream, nil)
         return
     end
 end
@@ -627,6 +626,7 @@ function _M.spawn_checker(opts)
         statuses = statuses,
         version = 0,
         concurrency = concur,
+        started = true
     }
 
     local ok, err = new_timer(0, check, ctx)
@@ -634,9 +634,18 @@ function _M.spawn_checker(opts)
         return nil, "failed to create timer: " .. err
     end
 
-    update_upstream_checker_status(u, true)
+    update_upstream_checker_status(u, ctx)
 
     return true
+end
+
+function _M.kill_checker(u)
+    local ctx = update_upstream_checker_status[u]
+    if ctx then
+        ctx.started = false
+    end
+
+    update_upstream_checker_status[u] = nil
 end
 
 local function gen_peers_status_info(peers, bits, idx)
@@ -678,7 +687,7 @@ function _M.status_page()
         idx = idx + 2
 
         local ncheckers = upstream_checker_statuses[u]
-        if not ncheckers or ncheckers == 0 then
+        if not ncheckers or not ncheckers.started then
             bits[idx] = " (NO checkers)"
             idx = idx + 1
         end
