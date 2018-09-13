@@ -104,7 +104,7 @@ init_worker_by_lua '
         access_log off;
         content_by_lua '
             local hc = require "resty.upstream.monitor"
-            ngx.print(hc.status_page("memcache"))
+            ngx.print(hc.status_page("monitor"))
 
             ngx.sleep(0.52)
 
