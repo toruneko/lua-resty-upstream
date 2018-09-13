@@ -640,12 +640,12 @@ function _M.spawn_checker(opts)
 end
 
 function _M.kill_checker(u)
-    local ctx = update_upstream_checker_status[u]
+    local ctx = upstream_checker_statuses[u]
     if ctx then
         ctx.started = false
     end
 
-    update_upstream_checker_status[u] = nil
+    upstream_checker_statuses[u] = nil
 end
 
 local function get_version(ctx)
