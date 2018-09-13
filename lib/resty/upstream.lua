@@ -69,21 +69,24 @@ local function update_upstream(u, data)
 
     local ups = new_tab(0, #hosts)
     for _, peer in ipairs(hosts) do
-        peer.port = tonumber(peer.port) or 8080
-        peer.weight = tonumber(peer.weight) or 100
-        peer.max_fails = tonumber(peer.max_fails) or 3
-        peer.fail_timeout = tonumber(peer.fail_timeout) or 10
-        if peer.default_down then
-            local key = gen_peer_key("d:", u, false, peer.name)
-            local value, err = peercache:get(key)
-            if value == nil then
-                peercache:set(key, peer.default_down)
-            end
-        end
-
         -- name and host must not be nil
         if peer.name and peer.host then
-            ups[peer.name] = peer
+            if peer.default_down then
+                local key = gen_peer_key("d:", u, false, peer.name)
+                local value, err = peercache:get(key)
+                if value == nil then
+                    peercache:set(key, peer.default_down)
+                end
+            end
+
+            ups[peer.name] = {
+                name = peer.name,
+                host = peer.host,
+                port = tonumber(peer.port) or 8080,
+                weight = tonumber(peer.weight) or 100,
+                max_fails = tonumber(peer.max_fails) or 3,
+                fail_timeout = tonumber(peer.fail_timeout) or 10
+            }
         end
     end
 
