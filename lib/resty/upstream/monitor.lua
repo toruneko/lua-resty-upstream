@@ -217,19 +217,18 @@ local function check_peer(ctx, peer, is_backup)
         httpc:set_timeout(ctx.timeout)
         local res, err = httpc:request_uri("http://" .. peer.host .. ":" .. tostring(peer.port), req)
         if not res then
-            peer_error(ctx, is_backup, peer,
-                "check peer ", name, " failed : ", err)
+            return peer_error(ctx, is_backup, peer,
+                    "check peer ", name, " failed : ", err)
         end
 
         if statuses then
             if not statuses[res.status] then
-                peer_error(ctx, is_backup, peer, "bad status code from ",
-                    name, ": ", res.status)
+                return peer_error(ctx, is_backup, peer, "bad status code from ",
+                        name, ": ", res.status)
             end
         end
 
-        peer_ok(ctx, is_backup, peer)
-        return
+        return peer_ok(ctx, is_backup, peer)
     end
 
     local sock, err = stream_sock()
