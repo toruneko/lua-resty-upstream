@@ -45,6 +45,7 @@ local get_primary_peers = upstream.get_primary_peers
 local get_backup_peers = upstream.get_backup_peers
 local get_upstreams = upstream.get_upstreams
 local get_upstream_version = upstream.get_version
+local check_peer_down = upstream.check_peer_down
 
 local upstream_checker_statuses = {}
 
@@ -646,11 +647,11 @@ local function get_version(dict, u)
     return dict:get(key) or 0
 end
 
-local function get_peer_status(dict, u, is_backup, peer, down)
+local function get_peer_status(dict, u, is_backup, name, down)
     if down then
-        return dict:get(gen_peer_key("nok:", u, is_backup, peer.name)) or 0
+        return dict:get(gen_peer_key("nok:", u, is_backup, name)) or 0
     else
-        return dict:get(gen_peer_key("ok:", u, is_backup, peer.name)) or 0
+        return dict:get(gen_peer_key("ok:", u, is_backup, name)) or 0
     end
 end
 
@@ -658,15 +659,15 @@ local function gen_peers_status_info(u, dict, is_backup, peers, bits, idx)
     for _, peer in ipairs(peers) do
         bits[idx] = u .. ","
         bits[idx + 1] = peer.name .. "," .. peer.weight .. ","
-        if peer.down then
+        if check_peer_down(u, false, peer.name) then
             bits[idx + 2] = "down,"
         else
             bits[idx + 2] = "up,"
         end
         bits[idx + 3] = tostring(get_upstream_version(u) or -1) .. "," ..
                 tostring(get_version(dict, u)) .. "," ..
-                tostring(get_peer_status(dict, u, is_backup, peer, false) or 0) .. "," ..
-                tostring(get_peer_status(dict, u, is_backup, peer, true) or 0) .. "\n"
+                tostring(get_peer_status(dict, u, is_backup, peer.name, false) or 0) .. "," ..
+                tostring(get_peer_status(dict, u, is_backup, peer.name, true) or 0) .. "\n"
         idx = idx + 4
     end
     return idx

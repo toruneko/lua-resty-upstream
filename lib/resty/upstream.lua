@@ -17,7 +17,7 @@ local math_max = math.max
 local math_gcd = math.gcd
 
 local _M = {
-    _VERSION = '0.0.3'
+    _VERSION = '0.0.4'
 }
 
 local ok, new_tab = pcall(require, "table.new")
@@ -82,11 +82,28 @@ local function update_upstream(u, data)
             ups[peer.name] = {
                 name = peer.name,
                 host = peer.host,
+                down = peer.default_down,
                 port = tonumber(peer.port) or 8080,
                 weight = tonumber(peer.weight) or 100,
                 max_fails = tonumber(peer.max_fails) or 3,
                 fail_timeout = tonumber(peer.fail_timeout) or 10
             }
+        end
+    end
+
+    local old = upcache:get(u)
+    if old then
+        for _, peer in ipairs(old.peers) do
+            local p = ups[peer.name]
+            if p then
+                if peer.down then
+                    local key = gen_peer_key("d:", u, false, peer.name)
+                    peercache:set(key, true)
+                end
+                if peer.weight then
+                    p.weight = peer.weight
+                end
+            end
         end
     end
 
