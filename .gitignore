@@ -1,2 +1,5 @@
 t/servroot
 .idea/
+
+*.tar.gz
+lua-resty-upstream-*/
