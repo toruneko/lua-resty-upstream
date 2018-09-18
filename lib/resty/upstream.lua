@@ -100,9 +100,6 @@ local function update_upstream(u, data)
                     local key = gen_peer_key("d:", u, false, peer.name)
                     peercache:set(key, true)
                 end
-                if peer.weight then
-                    p.weight = peer.weight
-                end
             end
         end
     end
