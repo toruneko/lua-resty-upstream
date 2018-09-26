@@ -97,6 +97,7 @@ local function update_upstream(u, data)
             local p = ups[peer.name]
             if p then
                 if peer.down then
+                    p.down = peer.down
                     local key = gen_peer_key("d:", u, false, peer.name)
                     peercache:set(key, true)
                 end
