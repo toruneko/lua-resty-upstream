@@ -73,10 +73,7 @@ local function update_upstream(u, data)
         if peer.name and peer.host then
             if peer.default_down then
                 local key = gen_peer_key("d:", u, false, peer.name)
-                local value, err = peercache:get(key)
-                if value == nil then
-                    peercache:set(key, peer.default_down)
-                end
+                peercache:set(key, peer.default_down)
             end
 
             ups[peer.name] = {
@@ -96,11 +93,8 @@ local function update_upstream(u, data)
         for _, peer in ipairs(old.peers) do
             local p = ups[peer.name]
             if p then
-                if peer.down then
-                    p.down = peer.down
-                    local key = gen_peer_key("d:", u, false, peer.name)
-                    peercache:set(key, true)
-                end
+                local key = gen_peer_key("d:", u, false, peer.name)
+                p.down = peercache:get(key)
             end
         end
     end
