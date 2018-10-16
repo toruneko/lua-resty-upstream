@@ -659,7 +659,7 @@ local function gen_peers_status_info(u, dict, is_backup, peers, bits, idx)
     for _, peer in ipairs(peers) do
         bits[idx] = u .. ","
         bits[idx + 1] = peer.name .. "," .. peer.weight .. ","
-        if check_peer_down(u, false, peer.name) then
+        if check_peer_down(u, is_backup, peer.name) then
             bits[idx + 2] = "down,"
         else
             bits[idx + 2] = "up,"
