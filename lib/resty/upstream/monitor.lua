@@ -45,6 +45,7 @@ local get_primary_peers = upstream.get_primary_peers
 local get_backup_peers = upstream.get_backup_peers
 local get_upstreams = upstream.get_upstreams
 local get_upstream_version = upstream.get_version
+local get_peers_size = upstream.get_peers_size
 local check_peer_down = upstream.check_peer_down
 
 local upstream_checker_statuses = {}
@@ -393,12 +394,21 @@ end
 local function check_upstream_version(ctx)
     local version = get_upstream_version(ctx.upstream)
     if not version then
+        ctx.primary_peers = {}
+        ctx.backup_peers = {}
+        return
+    end
+    local size = get_peers_size(ctx.upstream)
+    if not size then
+        ctx.primary_peers = {}
+        ctx.backup_peers = {}
         return
     end
 
-    if version > ctx.upstream_version then
+    if size ~= ctx.upstream_size or version > ctx.upstream_version then
         ctx.primary_peers = get_primary_peers(ctx.upstream)
         ctx.backup_peers = get_backup_peers(ctx.upstream)
+        ctx.upstream_size = size
         ctx.upstream_version = version
     end
 end
@@ -615,6 +625,7 @@ function _M.spawn_checker(opts)
 
     local ctx = {
         upstream = u,
+        upstream_size = 0,
         upstream_version = -1,
         http_req = http_req,
         timeout = timeout,

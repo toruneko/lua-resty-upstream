@@ -16,28 +16,28 @@ local _M = {
 local mt = { __index = _M }
 
 -- init_by_lua
-function _M.new(shdict, size)
+function _M.new(dict, size)
     if not size then
         size = 1000
     end
 
     local self = {
         cache = lrucache.new(size),
-        shdict = shdict
+        dict = dict
     }
     return setmetatable(self, mt)
 end
 
 function _M.get(self, key)
     local cache = self.cache
-    local shdict = self.shdict
+    local dict = self.dict
     local vkey = "v:" .. key
 
     local c = cache:get(key)
     -- missing in local cache.
     if not c then
         -- get from shared cache, write to local cache.
-        local data = shdict:get(key)
+        local data = dict:get(key)
         if not data then
             return nil, "no data"
         end
@@ -47,9 +47,9 @@ function _M.get(self, key)
             return nil, "invalid data"
         end
 
-        local ver = shdict:get(vkey)
+        local ver = dict:get(vkey)
         if not ver then
-            local succ, err = shdict:set(vkey, 1, data.ttl or 0)
+            local succ, err = dict:set(vkey, 1, data.ttl or 0)
             if not succ then
                 return nil, err
             end
@@ -59,7 +59,7 @@ function _M.get(self, key)
         return data.val, ver
     end
 
-    local ver = shdict:get(vkey)
+    local ver = dict:get(vkey)
     -- version data missing in shared cache, maybe deleted
     if not ver then
         return nil, "no version"
@@ -71,7 +71,7 @@ function _M.get(self, key)
     end
 
     -- data has been updated, should be write to local cache.
-    local data = shdict:get(key)
+    local data = dict:get(key)
     if not data then
         return nil, "no data"
     end
@@ -87,17 +87,16 @@ function _M.get(self, key)
 end
 
 function _M.set(self, key, value, ttl)
-    local shdict = self.shdict
+    local dict = self.dict
     local vkey = "v:" .. key
 
     -- update shared cache only, local cache will be update when invoke get method.
-    local succ, err = shdict:set(key, cjson.encode({ val = value, ttl = ttl }), ttl or 0)
+    local succ, err = dict:set(key, cjson.encode({ val = value, ttl = ttl }), ttl or 0)
     if not succ then
         return false, err
     end
 
-    shdict:add(vkey, 0, ttl or 0)
-    local new_v, err = shdict:incr(vkey, 1)
+    local new_v, err = dict:incr(vkey, 1, 1, ttl or 0)
     if not new_v then
         return false, err
     end
@@ -106,11 +105,11 @@ function _M.set(self, key, value, ttl)
 end
 
 function _M.delete(self, key)
-    local shdict = self.shdict
+    local dict = self.dict
     local vkey = "v:" .. key
 
-    shdict:delete(key)
-    shdict:delete(vkey)
+    dict:delete(key)
+    dict:delete(vkey)
 end
 
 return _M

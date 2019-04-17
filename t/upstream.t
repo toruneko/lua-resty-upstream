@@ -14,6 +14,9 @@ our $HttpConfig = <<'_EOC_';
     lua_package_path '$TEST_NGINX_CWD/lib/?.lua;$TEST_NGINX_CWD/t/lib/?.lua;;';
     lua_shared_dict upstream  5m;
     init_by_lua_block {
+        if ngx.config.ngx_lua_version >=10012 then
+            require "resty.core.shdict"
+        end
         local upstream = require "resty.upstream"
         upstream.init({
             cache = "upstream",

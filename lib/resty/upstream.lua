@@ -8,7 +8,7 @@ local NOTICE = ngx.NOTICE
 local ngx_lua_version = ngx.config.ngx_lua_version
 local tostring = tostring
 local tonumber = tonumber
-local shared = ngx.shared
+local ngx_shared = ngx.shared
 local ipairs = ipairs
 local pairs = pairs
 local error = error
@@ -17,7 +17,7 @@ local math_max = math.max
 local math_gcd = math.gcd
 
 local _M = {
-    _VERSION = '0.0.5'
+    _VERSION = '0.0.6'
 }
 
 local ok, new_tab = pcall(require, "table.new")
@@ -141,13 +141,13 @@ local function saveups(u, delete)
 end
 
 function _M.init(config)
-    local shdict = shared[config.cache]
-    if not shared then
+    local dict = ngx_shared[config.cache]
+    if not dict then
         error("no shared cache")
     end
 
-    peercache = shdict
-    upcache = lrucache.new(shdict, config.cache_size or 1000)
+    peercache = dict
+    upcache = lrucache.new(dict, config.cache_size or 1000)
 
     upcache:delete("lua.resty.upstream")
 end
@@ -247,6 +247,15 @@ function _M.get_version(u)
     end
 
     return ups.version
+end
+
+function _M.get_peers_size(u)
+    local ups, err = getups(u)
+    if not ups then
+        return nil, err
+    end
+
+    return ups.size
 end
 
 return _M

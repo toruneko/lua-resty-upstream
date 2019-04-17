@@ -142,10 +142,10 @@ local function shdict_store(zone, op, key, value, exptime, flags)
     end
 
     local rc = C.ngx_http_lua_ffi_shdict_store(zone, op, key, key_len,
-        valtyp, str_val_buf,
-        str_val_len, num_val,
-        exptime * 1000, flags, errmsg,
-        forcible)
+                                               valtyp, str_val_buf,
+                                               str_val_len, num_val,
+                                               exptime * 1000, flags, errmsg,
+                                               forcible)
 
     -- print("rc == ", rc)
 
@@ -214,9 +214,9 @@ local function shdict_get(zone, key)
     value_len[0] = size
 
     local rc = C.ngx_http_lua_ffi_shdict_get(zone, key, key_len, value_type,
-        str_value_buf, value_len,
-        num_value, user_flags, 0,
-        is_stale, errmsg)
+                                             str_value_buf, value_len,
+                                             num_value, user_flags, 0,
+                                             is_stale, errmsg)
     if rc ~= 0 then
         if errmsg[0] then
             return nil, ffi_str(errmsg[0])
@@ -289,9 +289,9 @@ local function shdict_get_stale(zone, key)
     value_len[0] = size
 
     local rc = C.ngx_http_lua_ffi_shdict_get(zone, key, key_len, value_type,
-        str_value_buf, value_len,
-        num_value, user_flags, 1,
-        is_stale, errmsg)
+                                             str_value_buf, value_len,
+                                             num_value, user_flags, 1,
+                                             is_stale, errmsg)
     if rc ~= 0 then
         if errmsg[0] then
             return nil, ffi_str(errmsg[0])
@@ -395,9 +395,9 @@ local function shdict_incr(zone, key, value, init, init_ttl)
     end
 
     local rc = C.ngx_http_lua_ffi_shdict_incr(zone, key, key_len, num_value,
-        errmsg, init and 1 or 0,
-        init or 0, init_ttl * 1000,
-        forcible)
+                                              errmsg, init and 1 or 0,
+                                              init or 0, init_ttl * 1000,
+                                              forcible)
     if rc ~= 0 then  -- ~= NGX_OK
         return nil, ffi_str(errmsg[0])
     end
@@ -476,7 +476,7 @@ local function shdict_expire(zone, key, exptime)
     end
 
     local rc = C.ngx_http_lua_ffi_shdict_set_expire(zone, key, key_len,
-        exptime * 1000)
+                                                    exptime * 1000)
 
     if rc == FFI_ERROR then
         return nil, "bad zone"
