@@ -51,14 +51,6 @@ local function getmax(peers)
     return max
 end
 
-local function build_peers(ups, size)
-    local peers = new_tab(size, 0)
-    for _, peer in pairs(ups) do
-        peers[#peers + 1] = peer
-    end
-    return peers
-end
-
 local function update_upstream(u, data)
     local version = tonumber(data.version)
     local hosts = data.hosts
@@ -68,12 +60,17 @@ local function update_upstream(u, data)
     end
 
     local ups = new_tab(0, #hosts)
+    local order = new_tab(#hosts, 0)
     for _, peer in ipairs(hosts) do
         -- name and host must not be nil
         if peer.name and peer.host then
             local key = gen_peer_key("d:", u, false, peer.name)
             if peer.default_down then
                 peercache:set(key, peer.default_down)
+            end
+
+            if not ups[peer.name] then
+                order[#order + 1] = peer.name
             end
 
             ups[peer.name] = {
@@ -88,7 +85,11 @@ local function update_upstream(u, data)
         end
     end
 
-    local peers = build_peers(ups, #hosts)
+    -- keep the peers in the same order as the hosts array
+    local peers = new_tab(#order, 0)
+    for i = 1, #order do
+        peers[i] = ups[order[i]]
+    end
     local max = getmax(peers)
     local gcd = getgcd(peers)
     return upcache:set(u, {

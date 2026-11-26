@@ -9,7 +9,7 @@ use Cwd qw(cwd);
 
 #repeat_each(2);
 
-plan tests => repeat_each() * (blocks() * 2 + 1);
+plan tests => repeat_each() * (blocks() * 3);
 
 my $pwd = cwd();
 
@@ -129,11 +129,85 @@ GET /t
 
 --- response_body
 foo.com,127.0.0.1:12354,100,up,1,0,1,0
-foo.com,127.0.0.1:12356,100,up,1,0,1,0
 foo.com,127.0.0.1:12355,100,up,1,0,1,0
-upstream addr: 127.0.0.1:12356
+foo.com,127.0.0.1:12356,100,up,1,0,1,0
 upstream addr: 127.0.0.1:12355
+upstream addr: 127.0.0.1:12356
 upstream addr: 127.0.0.1:12354
 
 --- no_error_log
 [error]
+
+
+
+=== TEST 2: health check refreshed when upstream version decreases
+--- http_config eval
+"$::HttpConfig"
+. q{
+server {
+    listen 12357;
+    location = /status {
+        return 200;
+    }
+}
+
+lua_shared_dict monitor 1m;
+init_worker_by_lua_block {
+    local upstream = require "resty.upstream"
+    upstream.update_upstream("ver.com", {
+        version = 2,
+        hosts = {
+            {name = "127.0.0.1:12357", host = "127.0.0.1", port = 12357, weight = 100, default_down = false},
+            {name = "127.0.0.1:12358", host = "127.0.0.1", port = 12358, weight = 100, default_down = false}
+        }
+    })
+
+    ngx.shared.monitor:flush_all()
+    local hc = require "resty.upstream.monitor"
+    local ok, err = hc.spawn_checker{
+        shm = "monitor",
+        upstream = "ver.com",
+        type = "http",
+        http_req = "GET /status HTTP/1.0\r\nHost: localhost\r\n\r\n",
+        interval = 100,
+        fall = 1,
+        rise = 1,
+    }
+    if not ok then
+        ngx.log(ngx.ERR, "failed to spawn health checker: ", err)
+    end
+}
+}
+--- config
+    location = /t {
+        content_by_lua_block {
+            local upstream = require "resty.upstream"
+            local hc = require "resty.upstream.monitor"
+
+            ngx.sleep(0.3)
+            local page = hc.status_page("monitor")
+            ngx.say(page:find("127.0.0.1:12358,100,down", 1, true) and "old-down" or "old-up")
+
+            -- the same peer count but with a lower version: 12359 replaces 12358
+            upstream.update_upstream("ver.com", {
+                version = 1,
+                hosts = {
+                    {name = "127.0.0.1:12357", host = "127.0.0.1", port = 12357, weight = 100, default_down = false},
+                    {name = "127.0.0.1:12359", host = "127.0.0.1", port = 12359, weight = 100, default_down = false}
+                }
+            })
+
+            ngx.sleep(0.5)
+            page = hc.status_page("monitor")
+            ngx.say(page:find("127.0.0.1:12359,100,down", 1, true) and "new-down" or "new-up")
+        }
+    }
+--- request
+GET /t
+
+--- response_body
+old-down
+new-down
+
+--- error_log
+failed to connect to 127.0.0.1:12358
