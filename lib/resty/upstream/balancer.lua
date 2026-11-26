@@ -71,10 +71,11 @@ local function get_source_ip_hash_peer(u)
         return get_single_peer(ups, u)
     end
 
-    local src, err = math_abs(iputils.ip2bin(ngx.var.remote_addr))
+    local src, err = iputils.ip2bin(ngx.var.remote_addr)
     if not src then
         return nil, err
     end
+    src = math_abs(src)
     local current = (src % ups.size) + 1
     local peer = ups.peers[current]
 
@@ -128,7 +129,7 @@ local function get_weighted_round_robin_peer(u)
 end
 
 local function proxy_pass(peer_factory, u, tries, include)
-    if not type(peer_factory) == "function" then
+    if type(peer_factory) ~= "function" then
         error("peer_factory must be a function")
     end
     tries = tonumber(tries) or 0
