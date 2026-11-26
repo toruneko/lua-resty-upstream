@@ -220,3 +220,54 @@ a1.foo.com:8080
 --- error_code: 200
 --- no_error_log
 [error]
+
+
+
+=== TEST 7: get source ip hash peer when remote addr is invalid
+--- http_config eval: $::HttpConfig
+--- config
+    location = /t {
+        content_by_lua_block {
+            local iputils = require "resty.iputils"
+            local ip2bin = iputils.ip2bin
+            iputils.ip2bin = function() return nil, "Invalid IP" end
+
+            local balancer = require "resty.upstream.balancer"
+            local peer, err = balancer.get_source_ip_hash_peer("foo.com")
+
+            iputils.ip2bin = ip2bin
+
+            ngx.say(peer)
+            ngx.say(err)
+        }
+    }
+--- request
+GET /t
+--- response_body
+nil
+Invalid IP
+--- error_code: 200
+--- no_error_log
+[error]
+
+
+
+=== TEST 8: proxy pass with invalid peer factory
+--- http_config eval: $::HttpConfig
+--- config
+    location = /t {
+        content_by_lua_block {
+            local balancer = require "resty.upstream.balancer"
+            local ok, err = pcall(balancer.proxy_pass, {}, "foo.com", 0)
+            ngx.say(ok)
+            ngx.say(tostring(err):match("peer_factory must be a function") or "unknown error")
+        }
+    }
+--- request
+GET /t
+--- response_body
+false
+peer_factory must be a function
+--- error_code: 200
+--- no_error_log
+[error]

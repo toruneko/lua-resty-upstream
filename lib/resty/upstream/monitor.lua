@@ -340,7 +340,7 @@ local function check_peers(ctx, peers, is_backup)
 
         else
             local group_size = ceil(n / concur)
-            local nthr = ceil(n / group_size) - 1
+            nthr = ceil(n / group_size) - 1
 
             threads = new_tab(nthr, 0)
             local from = 1
@@ -405,7 +405,7 @@ local function check_upstream_version(ctx)
         return
     end
 
-    if size ~= ctx.upstream_size or version > ctx.upstream_version then
+    if size ~= ctx.upstream_size or version ~= ctx.upstream_version then
         ctx.primary_peers = get_primary_peers(ctx.upstream)
         ctx.backup_peers = get_backup_peers(ctx.upstream)
         ctx.upstream_size = size
